@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CityScore Mayor Dashboard</title>
+    <title>Boston CityScore: State of City Services</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -21,8 +21,8 @@
     <header class="masthead">
       <div class="masthead-brand">
         <span class="eyebrow">Boston CityScore</span>
-        <h1>Mayor's Daily Brief</h1>
-        <p id="mastheadSubtitle">Loading operational pulse and citywide trajectory.</p>
+        <h1>State of City Services</h1>
+        <p id="mastheadSubtitle">Loading executive diagnosis, portfolio rankings, and service-area signals.</p>
       </div>
 
       <div class="masthead-actions">
@@ -37,12 +37,82 @@
     <main class="dashboard-main">
       <section class="hero-panel panel reveal">
         <div class="hero-copy">
-          <span class="eyebrow">Daily Situation Room</span>
-          <h2>Every metric should answer: are we on track, are we moving, and does this need action today?</h2>
-          <p id="heroNote">Waiting for the latest CityScore note.</p>
+          <span class="eyebrow">Executive Diagnosis</span>
+          <div class="hero-headline-stack">
+            <span class="status-banner" id="headlineStatus">Loading</span>
+            <h2 id="heroHeadline">Preparing the state-of-city-services briefing.</h2>
+          </div>
+          <p id="heroSupport">Waiting for the latest executive summary.</p>
+          <div class="alert-reasons" id="heroGuide"></div>
         </div>
         <div class="hero-summary" id="heroSummary"></div>
       </section>
+
+      <div class="split-grid reveal executive-scope-grid">
+        <section class="panel scope-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">How To Read CityScore</span>
+              <h3>Interpretation, period, and scope</h3>
+            </div>
+          </div>
+          <div id="dataScopeSummary"></div>
+        </section>
+
+        <section class="panel portfolio-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Portfolio Mix</span>
+              <h3>How services are classified today</h3>
+            </div>
+          </div>
+          <div id="portfolioMix"></div>
+        </section>
+      </div>
+
+      <div class="split-grid reveal rankings-grid">
+        <section class="panel ranking-panel ranking-panel-best">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Best Performing Services</span>
+              <h3>Top 5 services showing strength</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="bestServicesList"></div>
+        </section>
+
+        <section class="panel ranking-panel ranking-panel-risk">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Worst Performing Services</span>
+              <h3>Bottom 5 services requiring attention</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="worstServicesList"></div>
+        </section>
+      </div>
+
+      <div class="split-grid reveal strategy-grid">
+        <section class="panel recommendations-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Leadership Actions</span>
+              <h3>What the mayor should do next</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="recommendationsList"></div>
+        </section>
+
+        <section class="panel methodology-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Methodology</span>
+              <h3>How services were classified and ranked</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="methodologyList"></div>
+        </section>
+      </div>
 
       <section class="top-card-grid reveal" id="topCardGrid"></section>
 

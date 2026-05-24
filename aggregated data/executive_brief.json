@@ -1,0 +1,264 @@
+{
+  "headline_status": "mixed",
+  "headline_text": "Boston's service portfolio is mixed: core services are functioning, but several priorities need leadership attention.",
+  "supporting_text": "50% of scored services are above target, with 9 services in priority intervention. Strength is most visible in Education And Civic Life, while Streets And Public Works needs the closest managerial follow-up.",
+  "kpi_cards": [
+    {
+      "label": "Services Above Target",
+      "value": "50%",
+      "detail": "9 of 18 scored services"
+    },
+    {
+      "label": "Median CityScore",
+      "value": "1.03",
+      "detail": "Median latest available service score"
+    },
+    {
+      "label": "Priority Interventions",
+      "value": "9",
+      "detail": "Services classified as requiring immediate leadership attention"
+    }
+  ],
+  "data_scope": {
+    "source_focus": "CityScore Full Metric List",
+    "download_date": "2026-05-24",
+    "analysis_start_date": "2026-03-25",
+    "analysis_end_date": "2026-05-16",
+    "services_in_scope": 23,
+    "services_ranked": 18,
+    "snapshot_dates": 5,
+    "reading_note": "CityScore values below 1 indicate performance below target; values above 1 indicate performance above target."
+  },
+  "score_guide": [
+    "Use 1.0 as the decision boundary: scores below 1 are below target and scores above 1 exceed target.",
+    "The dashboard focuses on the CityScore Full Metric List and uses multiple recent snapshots to reduce one-day ranking bias.",
+    "Priority Intervention metrics combine poor current performance with negative recent movement or weak consistency across periods."
+  ],
+  "portfolio_mix": {
+    "Leading": 7,
+    "Stable": 1,
+    "Watchlist": 1,
+    "Priority Intervention": 9,
+    "Data Gap": 5
+  },
+  "best_services": [
+    {
+      "metric_name": "LIBRARY USERS",
+      "display_name": "Library Users",
+      "service_area": "Education And Civic Life",
+      "owner_department": "Boston Public Library",
+      "classification": "Leading",
+      "selected_period": "week",
+      "current_score": 1.77338118808939,
+      "previous_score": 1.773381,
+      "recent_trend": 0.023751542839159923,
+      "period_average_score": 1.7679101438220834,
+      "period_above_target_ratio": 1.0,
+      "ranking_score": 1.58223086142609,
+      "target": null,
+      "evidence": "Latest week score is 1.77. Cross-period average is 1.77. Recent snapshots are improving. 100% of available period views are above target."
+    },
+    {
+      "metric_name": "STABBINGS (TREND)",
+      "display_name": "Stabbings",
+      "service_area": "Public Safety",
+      "owner_department": "Boston Police Department",
+      "classification": "Leading",
+      "selected_period": "week",
+      "current_score": 1.83333333333333,
+      "previous_score": 1.833333,
+      "recent_trend": 0.9259259259259229,
+      "period_average_score": 1.3484651093141666,
+      "period_above_target_ratio": 1.0,
+      "ranking_score": 1.5787829439952068,
+      "target": null,
+      "evidence": "Latest week score is 1.83. Cross-period average is 1.35. Recent snapshots are improving. 100% of available period views are above target."
+    },
+    {
+      "metric_name": "HOMICIDES (TREND)",
+      "display_name": "Homicides",
+      "service_area": "Public Safety",
+      "owner_department": "Boston Police Department",
+      "classification": "Leading",
+      "selected_period": "week",
+      "current_score": 1.33333333333333,
+      "previous_score": 1.333333,
+      "recent_trend": 0.0,
+      "period_average_score": 2.64583333333333,
+      "period_above_target_ratio": 1.0,
+      "ranking_score": 1.5781249999999973,
+      "target": null,
+      "evidence": "Latest week score is 1.33. Cross-period average is 2.65. Recent snapshots are improving. 100% of available period views are above target."
+    },
+    {
+      "metric_name": "CODE ENFORCEMENT TRASH COLLECTION",
+      "display_name": "Code Enforcement Trash Collection",
+      "service_area": "Permits And Code",
+      "owner_department": "Inspectional Services",
+      "classification": "Leading",
+      "selected_period": "day",
+      "current_score": 1.25,
+      "previous_score": 1.25,
+      "recent_trend": 0.12711864406780005,
+      "period_average_score": 1.2151641566576925,
+      "period_above_target_ratio": 1.0,
+      "ranking_score": 1.1978588357745932,
+      "target": 0.8,
+      "evidence": "Latest day score is 1.25. Cross-period average is 1.22. Recent snapshots are improving. 100% of available period views are above target."
+    },
+    {
+      "metric_name": "CODE ENFORCEMENT ON-TIME %",
+      "display_name": "Code Enforcement On-Time %",
+      "service_area": "Permits And Code",
+      "owner_department": "Inspectional Services",
+      "classification": "Leading",
+      "selected_period": "day",
+      "current_score": 1.25,
+      "previous_score": 1.25,
+      "recent_trend": 0.0,
+      "period_average_score": 1.23380168676183,
+      "period_above_target_ratio": 1.0,
+      "ranking_score": 1.1834504216904576,
+      "target": 0.8,
+      "evidence": "Latest day score is 1.25. Cross-period average is 1.23. Recent snapshots are improving. 100% of available period views are above target."
+    }
+  ],
+  "worst_services": [
+    {
+      "metric_name": "SIGN INSTALLATION ON-TIME %",
+      "display_name": "Sign Installation On-Time %",
+      "service_area": "Streets And Public Works",
+      "owner_department": "Transportation",
+      "classification": "Priority Intervention",
+      "selected_period": "week",
+      "current_score": 0.100806451612903,
+      "previous_score": 0.100806,
+      "recent_trend": -1.149193548387097,
+      "period_average_score": 0.17366408747457132,
+      "period_above_target_ratio": 0.0,
+      "ranking_score": 1.044475806451613,
+      "target": 0.8,
+      "evidence": "Latest week score is 0.10. That is 0.90 points below the CityScore threshold. Recent snapshots declined by 1.15 points. Only 0% of available period views are above target."
+    },
+    {
+      "metric_name": "SHOOTINGS (TREND)",
+      "display_name": "Shootings",
+      "service_area": "Public Safety",
+      "owner_department": "Boston Police Department",
+      "classification": "Priority Intervention",
+      "selected_period": "week",
+      "current_score": 0.611111111111111,
+      "previous_score": 0.611111,
+      "recent_trend": -1.9722222222222188,
+      "period_average_score": 1.1550245098039202,
+      "period_above_target_ratio": 0.6666666666666666,
+      "ranking_score": 0.8061111111111104,
+      "target": null,
+      "evidence": "Latest week score is 0.61. That is 0.39 points below the CityScore threshold. Recent snapshots declined by 1.97 points. Only 67% of available period views are above target."
+    },
+    {
+      "metric_name": "POTHOLE ON-TIME %",
+      "display_name": "Pothole Repair On-Time %",
+      "service_area": "Streets And Public Works",
+      "owner_department": "Public Works",
+      "classification": "Priority Intervention",
+      "selected_period": "day",
+      "current_score": 0.5,
+      "previous_score": 0.5,
+      "recent_trend": -0.75,
+      "period_average_score": 0.6326654519033833,
+      "period_above_target_ratio": 0.0,
+      "ranking_score": 0.765,
+      "target": 0.8,
+      "evidence": "Latest day score is 0.50. That is 0.50 points below the CityScore threshold. Recent snapshots declined by 0.75 points. Only 0% of available period views are above target."
+    },
+    {
+      "metric_name": "ON-TIME PERMIT REVIEWS",
+      "display_name": "On-Time Permit Reviews",
+      "service_area": "Permits And Code",
+      "owner_department": "Planning And Development",
+      "classification": "Priority Intervention",
+      "selected_period": "week",
+      "current_score": 0.712820512820513,
+      "previous_score": 0.712821,
+      "recent_trend": 0.07645687645687693,
+      "period_average_score": 0.6927347447428728,
+      "period_above_target_ratio": 0.0,
+      "ranking_score": 0.5792307692307692,
+      "target": 1.0,
+      "evidence": "Latest week score is 0.71. That is 0.29 points below the CityScore threshold. Only 0% of available period views are above target."
+    },
+    {
+      "metric_name": "BFD INCIDENTS",
+      "display_name": "BFD Incidents",
+      "service_area": "Public Safety",
+      "owner_department": "Boston Fire Department",
+      "classification": "Priority Intervention",
+      "selected_period": "week",
+      "current_score": 0.846676530220834,
+      "previous_score": 0.846677,
+      "recent_trend": -0.017913008680631948,
+      "period_average_score": 0.890345747433282,
+      "period_above_target_ratio": 0.0,
+      "ranking_score": 0.5225781631367511,
+      "target": null,
+      "evidence": "Latest week score is 0.85. That is 0.15 points below the CityScore threshold. Recent snapshots declined by 0.02 points. Only 0% of available period views are above target."
+    }
+  ],
+  "methodology": [
+    {
+      "title": "Latest score anchors the diagnosis",
+      "description": "Each service starts with its latest available CityScore from the Full Metric List. Scores below 1 are below target and scores above 1 exceed target."
+    },
+    {
+      "title": "Best performers use more than one snapshot",
+      "description": "Best-service ranking blends the latest score, the average across available day/week/month/quarter views, and the recent trend across the Full Metric List snapshots."
+    },
+    {
+      "title": "Worst performers combine level and momentum",
+      "description": "Worst-service ranking blends target gap, negative recent trend, weak consistency across periods, and the existing alert severity logic."
+    },
+    {
+      "title": "Missing services are tracked separately",
+      "description": "Metrics without a current score are excluded from best/worst ranking and shown as data gaps so the Mayor does not confuse missing data with poor performance."
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "Immediate",
+      "action_title": "Stabilize Sign Installation On-Time %",
+      "owner": "Transportation",
+      "service_area": "Streets And Public Works",
+      "evidence": "Latest week score is 0.10. That is 0.90 points below the CityScore threshold. Recent snapshots declined by 1.15 points. Only 0% of available period views are above target.",
+      "recommendation": "Review queue age, staffing allocation, and handoff delays to recover on-time service performance.",
+      "next_step": "Ask the department head for a short recovery plan with staffing, backlog, and operational bottlenecks before the next cabinet review."
+    },
+    {
+      "priority": "High",
+      "action_title": "Run a targeted watchlist review for Streets And Public Works",
+      "owner": "Mayor's Office / Chief of Staff",
+      "service_area": "Streets And Public Works",
+      "evidence": "The current bottom tier includes Sign Installation On-Time %, Shootings, Pothole Repair On-Time %, pointing to concentrated pressure in Streets And Public Works.",
+      "recommendation": "Hold a cross-functional operating review that compares demand, staffing, and service-cycle performance across the weakest metrics in this area.",
+      "next_step": "Use the metric drill-downs to confirm whether the issue is a one-snapshot dip or a repeated multi-period pattern."
+    },
+    {
+      "priority": "Medium",
+      "action_title": "Replicate practices from Library Users",
+      "owner": "Boston Public Library",
+      "service_area": "Education And Civic Life",
+      "evidence": "Latest week score is 1.77. Cross-period average is 1.77. Recent snapshots are improving. 100% of available period views are above target.",
+      "recommendation": "Document the operating practices behind this service's performance and test whether those habits can transfer to weaker services in the same or adjacent service areas.",
+      "next_step": "Ask the owning department to share the specific staffing, routing, queue-management, or quality-control practice behind the current result."
+    },
+    {
+      "priority": "Medium",
+      "action_title": "Close data freshness gaps before the briefing cycle",
+      "owner": "Analytics Team",
+      "service_area": "Citywide",
+      "evidence": "5 metrics are missing a current selected score and 0 are stale.",
+      "recommendation": "Separate data delays from true service underperformance so the Mayor is not reacting to missing feeds as if they were operational failures.",
+      "next_step": "Confirm metric cadence expectations and add source-specific escalation for late or incomplete daily loads."
+    }
+  ]
+}

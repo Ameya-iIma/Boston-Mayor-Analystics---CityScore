@@ -6,6 +6,7 @@ from .pipeline import CityScoreRepository
 from .schemas import (
     AlertItem,
     CityHistoryPoint,
+    ExecutiveBriefResponse,
     FreshnessResponse,
     MayorDailyBriefResponse,
     MetricDetailResponse,
@@ -42,6 +43,11 @@ def refresh_pipeline(
 @router.get("/dashboard/overview", response_model=MayorDailyBriefResponse)
 def get_dashboard_overview(repository: CityScoreRepository = Depends(get_repository)) -> dict:
     return repository.get_daily_brief()
+
+
+@router.get("/dashboard/executive-brief", response_model=ExecutiveBriefResponse)
+def get_dashboard_executive_brief(repository: CityScoreRepository = Depends(get_repository)) -> dict:
+    return repository.get_executive_brief()
 
 
 @router.get("/dashboard/city-history", response_model=list[CityHistoryPoint])

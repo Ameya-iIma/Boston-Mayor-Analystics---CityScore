@@ -2,6 +2,7 @@ const API_BASE = "/api/v1";
 const PERIODS = ["day", "week", "month", "quarter"];
 
 const state = {
+  executiveBrief: null,
   overview: null,
   alerts: [],
   serviceAreas: [],
@@ -24,8 +25,17 @@ const state = {
 
 const elements = {
   loadingScreen: document.getElementById("loadingScreen"),
-  heroNote: document.getElementById("heroNote"),
+  headlineStatus: document.getElementById("headlineStatus"),
+  heroHeadline: document.getElementById("heroHeadline"),
+  heroSupport: document.getElementById("heroSupport"),
+  heroGuide: document.getElementById("heroGuide"),
   heroSummary: document.getElementById("heroSummary"),
+  dataScopeSummary: document.getElementById("dataScopeSummary"),
+  portfolioMix: document.getElementById("portfolioMix"),
+  bestServicesList: document.getElementById("bestServicesList"),
+  worstServicesList: document.getElementById("worstServicesList"),
+  recommendationsList: document.getElementById("recommendationsList"),
+  methodologyList: document.getElementById("methodologyList"),
   topCardGrid: document.getElementById("topCardGrid"),
   cityPeriodToggle: document.getElementById("cityPeriodToggle"),
   cityHistoryChart: document.getElementById("cityHistoryChart"),
@@ -81,7 +91,8 @@ async function loadDashboard({ refresh = false } = {}) {
       await fetchJson(`${API_BASE}/pipeline/refresh`, { method: "POST" });
     }
 
-    const [overview, alerts, serviceAreas, freshness, metrics, cityHistory] = await Promise.all([
+    const [executiveBrief, overview, alerts, serviceAreas, freshness, metrics, cityHistory] = await Promise.all([
+      fetchJson(`${API_BASE}/dashboard/executive-brief`),
       fetchJson(`${API_BASE}/dashboard/overview`),
       fetchJson(`${API_BASE}/dashboard/alerts?limit=50`),
       fetchJson(`${API_BASE}/dashboard/service-areas`),
@@ -90,6 +101,7 @@ async function loadDashboard({ refresh = false } = {}) {
       fetchJson(`${API_BASE}/dashboard/city-history?days=240`),
     ]);
 
+    state.executiveBrief = executiveBrief;
     state.overview = overview;
     state.alerts = alerts;
     state.serviceAreas = serviceAreas;
@@ -133,6 +145,9 @@ async function fetchJson(url, options = {}) {
 
 function renderDashboard() {
   renderHero();
+  renderExecutiveScope();
+  renderExecutiveRankings();
+  renderExecutiveStrategy();
   renderTopCards();
   renderCityHistory();
   renderCriticalAlerts();
@@ -144,53 +159,176 @@ function renderDashboard() {
 
 
 function renderHero() {
+  const brief = state.executiveBrief;
   const overview = state.overview;
   const freshness = state.freshness;
 
-  elements.healthChip.textContent = freshness?.actionable_alerts
-    ? `${freshness.actionable_alerts} active alerts`
-    : "No active alerts";
+  const status = brief?.headline_status || "mixed";
+  elements.healthChip.textContent = `Portfolio ${titleCase(status)}`;
+  elements.healthChip.className = `status-chip ${statusToneClass(status)}`;
   elements.asOfChip.textContent = `As of: ${formatDate(overview?.as_of_date)}`;
-  elements.mastheadSubtitle.textContent = `Tracking ${freshness?.metrics_total ?? 0} metrics across ${state.serviceAreas.length} service areas.`;
-  elements.heroNote.textContent = overview?.note || "CityScore note unavailable.";
+  elements.mastheadSubtitle.textContent = brief
+    ? `Using ${brief.data_scope.services_ranked} ranked services across ${brief.data_scope.snapshot_dates} recent Full Metric List snapshots.`
+    : `Tracking ${freshness?.metrics_total ?? 0} metrics across ${state.serviceAreas.length} service areas.`;
 
-  const changeSummary = overview?.change_summary || {};
-  const freshnessStats = [
+  elements.headlineStatus.textContent = titleCase(status);
+  elements.headlineStatus.className = `status-banner ${statusToneClass(status)}`;
+  elements.heroHeadline.textContent =
+    brief?.headline_text || "Preparing the state-of-city-services briefing.";
+  elements.heroSupport.textContent =
+    brief?.supporting_text || overview?.note || "CityScore context unavailable.";
+
+  elements.heroGuide.innerHTML = (brief?.score_guide || [])
+    .map((item) => `<span class="reason-pill">${escapeHtml(item)}</span>`)
+    .join("");
+
+  const heroCards = brief?.kpi_cards || [];
+  elements.heroSummary.innerHTML = heroCards
+    .map(
+      (item) => {
+        const value = String(item.value);
+        const animateAttr = /^-?\d+(\.\d+)?$/.test(value)
+          ? ` data-animate-number="${escapeHtml(value)}"`
+          : "";
+        return `
+        <article class="summary-tile">
+          <span class="summary-label">${escapeHtml(item.label)}</span>
+          <strong class="summary-value"${animateAttr}>${escapeHtml(value)}</strong>
+          <span class="summary-foot">${escapeHtml(item.detail)}</span>
+        </article>
+      `;
+      }
+    )
+    .join("");
+
+  animateNumericElements(elements.heroSummary.querySelectorAll("[data-animate-number]"));
+}
+
+
+function renderExecutiveScope() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.dataScopeSummary.innerHTML = `<div class="empty-state">Executive scope is unavailable.</div>`;
+    elements.portfolioMix.innerHTML = `<div class="empty-state">Portfolio mix is unavailable.</div>`;
+    return;
+  }
+
+  const scope = brief.data_scope;
+  const scopeStats = [
+    { label: "Source Focus", value: scope.source_focus, foot: "Primary analytical dataset" },
     {
-      label: "Actionable alerts",
-      value: freshness?.actionable_alerts ?? 0,
-      foot: "Red, amber, or data issues",
+      label: "Data Period",
+      value: `${formatDate(scope.analysis_start_date, { month: "short", day: "numeric" })} to ${formatDate(scope.analysis_end_date, { month: "short", day: "numeric" })}`,
+      foot: `${scope.snapshot_dates} snapshot dates in the Full Metric List`,
     },
     {
-      label: "Improving metrics",
-      value: changeSummary.improving_metrics ?? 0,
-      foot: "Better than the previous valid score",
+      label: "Services Ranked",
+      value: `${scope.services_ranked}/${scope.services_in_scope}`,
+      foot: "Services with a current score suitable for ranking",
     },
     {
-      label: "Worsening metrics",
-      value: changeSummary.worsening_metrics ?? 0,
-      foot: "Needs closer review today",
-    },
-    {
-      label: "Coverage today",
-      value: `${freshness?.metrics_with_selected_score ?? 0}/${freshness?.metrics_total ?? 0}`,
-      foot: "Metrics with a current selected score",
+      label: "Download Date",
+      value: formatDate(scope.download_date),
+      foot: "Documented because CityScore feeds can update over time",
     },
   ];
 
-  elements.heroSummary.innerHTML = freshnessStats
+  elements.dataScopeSummary.innerHTML = `
+    <div class="scope-grid">
+      ${scopeStats
+        .map(
+          (item) => `
+            <article class="scope-card">
+              <span class="summary-label">${escapeHtml(item.label)}</span>
+              <strong class="scope-value">${escapeHtml(item.value)}</strong>
+              <span class="summary-foot">${escapeHtml(item.foot)}</span>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+    <p class="scope-note">${escapeHtml(scope.reading_note)}</p>
+  `;
+
+  const total = Object.values(brief.portfolio_mix || {}).reduce((sum, value) => sum + Number(value || 0), 0) || 1;
+  elements.portfolioMix.innerHTML = `
+    <div class="portfolio-mix-list">
+      ${Object.entries(brief.portfolio_mix || {})
+        .map(([bucket, count]) => {
+          const share = (Number(count || 0) / total) * 100;
+          return `
+            <article class="mix-card">
+              <div class="mix-head">
+                <div>
+                  <strong>${escapeHtml(bucket)}</strong>
+                  <span>${formatPercent(share / 100)} of services</span>
+                </div>
+                ${renderConsultingBucketPill(bucket)}
+              </div>
+              <div class="mix-value">${escapeHtml(String(count))}</div>
+              <div class="mix-bar"><span style="width:${share}%"></span></div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+
+function renderExecutiveRankings() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.bestServicesList.innerHTML = `<div class="empty-state">Best-service ranking unavailable.</div>`;
+    elements.worstServicesList.innerHTML = `<div class="empty-state">Worst-service ranking unavailable.</div>`;
+    return;
+  }
+
+  elements.bestServicesList.innerHTML = renderRankedServiceCards(brief.best_services, "best");
+  elements.worstServicesList.innerHTML = renderRankedServiceCards(brief.worst_services, "worst");
+}
+
+
+function renderExecutiveStrategy() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.recommendationsList.innerHTML = `<div class="empty-state">Recommendations unavailable.</div>`;
+    elements.methodologyList.innerHTML = `<div class="empty-state">Methodology unavailable.</div>`;
+    return;
+  }
+
+  elements.recommendationsList.innerHTML = (brief.recommendations || [])
     .map(
       (item) => `
-        <article class="summary-tile">
-          <span class="summary-label">${escapeHtml(item.label)}</span>
-          <strong class="summary-value" data-animate-number="${escapeHtml(String(item.value))}">${escapeHtml(String(item.value))}</strong>
-          <span class="summary-foot">${escapeHtml(item.foot)}</span>
+        <article class="strategy-card">
+          <div class="alert-head">
+            <div>
+              <h4 class="alert-title">${escapeHtml(item.action_title)}</h4>
+              <div class="alert-meta">
+                <span>${escapeHtml(item.service_area)}</span>
+                <span>${escapeHtml(item.owner)}</span>
+              </div>
+            </div>
+            <span class="priority-pill ${slugify(item.priority)}">${escapeHtml(item.priority)}</span>
+          </div>
+          <p class="strategy-copy"><strong>Why:</strong> ${escapeHtml(item.evidence)}</p>
+          <p class="strategy-copy"><strong>Action:</strong> ${escapeHtml(item.recommendation)}</p>
+          <p class="strategy-copy"><strong>Next step:</strong> ${escapeHtml(item.next_step)}</p>
         </article>
       `
     )
     .join("");
 
-  animateNumericElements(elements.heroSummary.querySelectorAll("[data-animate-number]"));
+  elements.methodologyList.innerHTML = (brief.methodology || [])
+    .map(
+      (item) => `
+        <article class="method-card">
+          <h4 class="alert-title">${escapeHtml(item.title)}</h4>
+          <p class="strategy-copy">${escapeHtml(item.description)}</p>
+        </article>
+      `
+    )
+    .join("");
 }
 
 
@@ -470,7 +608,7 @@ function renderMetricList() {
         <article class="metric-row is-clickable" data-open-metric="${escapeHtml(metric.metric_name)}">
           <div class="metric-name-cell">
             <strong>${escapeHtml(metric.display_name)}</strong>
-            <span>${escapeHtml(metric.service_area)} · ${escapeHtml(metric.owner_department)}</span>
+            <span>${escapeHtml(metric.service_area)} · ${escapeHtml(metric.owner_department)} · ${escapeHtml(metric.consulting_bucket || "Unclassified")}</span>
           </div>
           <div class="metric-period">${escapeHtml(titleCase(metric.selected_period || "n/a"))}</div>
           <div class="metric-value">${formatScore(metric.current_score)}</div>
@@ -569,6 +707,10 @@ function renderDrawer() {
       label: "Target",
       value: formatScore(detail.target),
     },
+    {
+      label: "Recent trend",
+      value: formatSigned(detail.recent_trend),
+    },
   ]
     .map(
       (item) => `
@@ -616,8 +758,10 @@ function renderDrawer() {
     )
     .join("");
 
-  elements.drawerReasons.innerHTML = (detail.alert_reasons || [])
-    .map((reason) => `<span class="reason-pill">${escapeHtml(reason)}</span>`)
+  elements.drawerReasons.innerHTML = [
+    detail.consulting_bucket ? renderConsultingBucketPill(detail.consulting_bucket) : "",
+    ...(detail.alert_reasons || []).map((reason) => `<span class="reason-pill">${escapeHtml(reason)}</span>`),
+  ]
     .join("");
 }
 
@@ -688,8 +832,48 @@ function toggleLoading(isLoading) {
 
 function renderLoadError(error) {
   elements.healthChip.textContent = "Data unavailable";
-  elements.heroNote.textContent = `Dashboard load failed: ${error.message}`;
+  elements.heroHeadline.textContent = "Dashboard load failed.";
+  elements.heroSupport.textContent = error.message;
   elements.topCardGrid.innerHTML = `<div class="empty-state">Unable to render top cards.</div>`;
+}
+
+
+function renderRankedServiceCards(items, mode) {
+  if (!items?.length) {
+    return `<div class="empty-state">No ranked services available.</div>`;
+  }
+
+  return items
+    .map(
+      (item, index) => `
+        <article class="ranking-card ${mode} is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
+          <div class="alert-head">
+            <div>
+              <div class="rank-badge">${index + 1}</div>
+              <h4 class="alert-title">${escapeHtml(item.display_name)}</h4>
+              <div class="alert-meta">
+                <span>${escapeHtml(item.service_area)}</span>
+                <span>${escapeHtml(item.owner_department)}</span>
+                <span>${escapeHtml(titleCase(item.selected_period || "unknown"))}</span>
+              </div>
+            </div>
+            ${renderConsultingBucketPill(item.classification)}
+          </div>
+          <div class="kpi-strip">
+            <div class="kpi-tile">
+              <span class="kpi-label">Current score</span>
+              <strong class="kpi-value">${formatScore(item.current_score)}</strong>
+            </div>
+            <div class="kpi-tile">
+              <span class="kpi-label">Recent trend</span>
+              <strong class="kpi-value">${formatSigned(item.recent_trend)}</strong>
+            </div>
+          </div>
+          <p class="strategy-copy">${escapeHtml(item.evidence)}</p>
+        </article>
+      `
+    )
+    .join("");
 }
 
 
@@ -856,6 +1040,26 @@ function renderSeverityPill(severity) {
 }
 
 
+function renderConsultingBucketPill(bucket) {
+  if (!bucket) {
+    return "";
+  }
+  return `<span class="bucket-pill ${slugify(bucket)}">${escapeHtml(bucket)}</span>`;
+}
+
+
+function statusToneClass(status) {
+  switch (status) {
+    case "healthy":
+      return "healthy";
+    case "concerning":
+      return "concerning";
+    default:
+      return "mixed";
+  }
+}
+
+
 function severityColor(severity) {
   switch (severity) {
     case "red":
@@ -901,6 +1105,14 @@ function formatDate(value, options = {}) {
     year: "numeric",
     ...options,
   }).format(date);
+}
+
+
+function formatPercent(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${(Number(value) * 100).toFixed(0)}%`;
 }
 
 

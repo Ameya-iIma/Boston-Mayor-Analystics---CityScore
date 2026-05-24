@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -54,6 +55,7 @@ class DataBundle:
     service_area_summary: pd.DataFrame
     freshness: dict[str, Any]
     mayor_daily_brief: dict[str, Any]
+    executive_brief: dict[str, Any]
     refreshed_at: datetime
     current_as_of_date: date | None
 
@@ -90,6 +92,12 @@ class CityScoreRepository:
                 dataset_status=dataset_status,
                 latest_metric_snapshot=latest_metric_snapshot,
             )
+            executive_brief = self._build_executive_brief_payload(
+                cleaned_frames=cleaned_frames,
+                latest_metric_snapshot=latest_metric_snapshot,
+                service_area_summary=service_area_summary,
+                freshness=freshness,
+            )
             mayor_daily_brief = self._build_mayor_daily_brief_payload(
                 city_score_history=city_score_history,
                 latest_metric_snapshot=latest_metric_snapshot,
@@ -112,6 +120,7 @@ class CityScoreRepository:
                     latest_metric_snapshot=latest_metric_snapshot,
                     alerts=alerts,
                     service_area_summary=service_area_summary,
+                    executive_brief=executive_brief,
                 )
 
             self.bundle = DataBundle(
@@ -125,6 +134,7 @@ class CityScoreRepository:
                 service_area_summary=service_area_summary,
                 freshness=freshness,
                 mayor_daily_brief=mayor_daily_brief,
+                executive_brief=executive_brief,
                 refreshed_at=refreshed_at,
                 current_as_of_date=current_as_of_date,
             )
@@ -155,6 +165,11 @@ class CityScoreRepository:
         self.ensure_ready()
         assert self.bundle is not None
         return self.bundle.mayor_daily_brief
+
+    def get_executive_brief(self) -> dict[str, Any]:
+        self.ensure_ready()
+        assert self.bundle is not None
+        return self.bundle.executive_brief
 
     def get_freshness(self) -> dict[str, Any]:
         self.ensure_ready()
@@ -276,6 +291,13 @@ class CityScoreRepository:
             "change_vs_previous": self._safe_float_value(row.get("change_vs_previous")),
             "rolling_mean_14": self._safe_float_value(row.get("rolling_mean_14")),
             "rolling_mean_28": self._safe_float_value(row.get("rolling_mean_28")),
+            "consulting_bucket": self._safe_text_value(row.get("consulting_bucket")),
+            "performance_index": self._safe_float_value(row.get("performance_index")),
+            "priority_index": self._safe_float_value(row.get("priority_index")),
+            "recent_trend": self._safe_float_value(row.get("recent_trend")),
+            "period_average_score": self._safe_float_value(row.get("period_average_score")),
+            "period_above_target_ratio": self._safe_float_value(row.get("period_above_target_ratio")),
+            "recent_observation_count": self._safe_int_value(row.get("recent_observation_count")),
             "severity": row["severity"],
             "alert_reasons": row["alert_reasons"],
             "period_snapshots": period_snapshots,
@@ -682,18 +704,58 @@ class CityScoreRepository:
             how="left",
         )
 
+        recent_summary = self._build_recent_selected_period_summary(metric_history_long)
+        latest = latest.merge(
+            recent_summary,
+            on=["metric_name", "selected_period"],
+            how="left",
+        )
+
+        score_columns = [f"{period_type}_score" for period_type in CURRENT_PERIOD_MAP]
+        available_score_counts = latest[score_columns].notna().sum(axis=1)
+        latest["available_period_count"] = available_score_counts
+        latest["period_average_score"] = latest[score_columns].mean(axis=1, skipna=True)
+        latest["period_min_score"] = latest[score_columns].min(axis=1, skipna=True)
+        latest["period_max_score"] = latest[score_columns].max(axis=1, skipna=True)
+        latest["period_above_target_ratio"] = (
+            latest[score_columns].ge(1).sum(axis=1) / available_score_counts.replace(0, pd.NA)
+        )
+
         latest["previous_score"] = latest["summary_previous_score"].combine_first(latest["history_previous_score"])
         latest["change_vs_previous"] = latest["selected_score"] - latest["previous_score"]
         latest["change_vs_previous"] = latest["change_vs_previous"].combine_first(latest["history_change_vs_previous"])
         latest["below_target_streak"] = latest["history_below_target_streak"].fillna(0).astype(int)
         latest["recent_decline_flag"] = latest["history_recent_decline_flag"].fillna(False).astype(bool)
+        latest["recent_trend"] = latest["selected_score"] - latest["recent_start_score"]
+        latest["recent_trend"] = latest["recent_trend"].fillna(latest["change_vs_previous"])
+        latest["recent_observation_count"] = latest["recent_observation_count"].fillna(0).astype(int)
+        latest["recent_above_target_ratio"] = latest["recent_above_target_ratio"].fillna(0.0)
+        latest["recent_volatility"] = latest["recent_std_score"].fillna(0.0)
 
         latest_global_date = latest["as_of_date"].max()
-        latest["stale_metric"] = latest["as_of_date"] < (latest_global_date - pd.Timedelta(days=self.settings.stale_metric_threshold_days))
+        latest["stale_metric"] = latest["as_of_date"] < (
+            latest_global_date - pd.Timedelta(days=self.settings.stale_metric_threshold_days)
+        )
 
         classification = latest.apply(self._classify_metric_alert, axis=1)
         latest["severity"] = classification.map(lambda item: item[0])
         latest["alert_reasons"] = classification.map(lambda item: item[1])
+
+        normalized_trend = (1 + latest["recent_trend"].fillna(0).clip(lower=-0.5, upper=0.5)).clip(lower=0)
+        latest["performance_index"] = (
+            latest["selected_score"].fillna(0) * 0.5
+            + latest["period_average_score"].fillna(0) * 0.25
+            + normalized_trend * 0.15
+            + latest["period_above_target_ratio"].fillna(0) * 0.10
+        )
+        latest["priority_index"] = (
+            (1 - latest["selected_score"].fillna(1).clip(upper=1)) * 0.45
+            + (-latest["recent_trend"].fillna(0).clip(upper=0)) * 0.20
+            + (1 - latest["period_above_target_ratio"].fillna(0)) * 0.20
+            + latest["below_target_streak"].clip(upper=5).fillna(0) / 5 * 0.10
+            + latest["severity"].map({"red": 0.15, "amber": 0.08, "blue": 0.06, "green": 0.0}).fillna(0)
+        )
+        latest["consulting_bucket"] = latest.apply(self._classify_consulting_bucket, axis=1)
         latest["severity_rank"] = latest["severity"].map(SEVERITY_RANK)
         latest["selected_score_sort"] = latest["selected_score"].fillna(999.0)
 
@@ -736,6 +798,360 @@ class CityScoreRepository:
         )
         summary["service_area_order"] = summary["service_area"].map(self._service_area_order)
         return summary.sort_values(["service_area_order", "service_area"]).reset_index(drop=True)
+
+    def _build_recent_selected_period_summary(self, metric_history_long: pd.DataFrame) -> pd.DataFrame:
+        current_history = metric_history_long[metric_history_long["source"] == "current_full_snapshot"].copy()
+        if current_history.empty:
+            return pd.DataFrame(
+                columns=[
+                    "metric_name",
+                    "selected_period",
+                    "recent_observation_count",
+                    "recent_start_score",
+                    "recent_end_score",
+                    "recent_mean_score",
+                    "recent_min_score",
+                    "recent_max_score",
+                    "recent_std_score",
+                    "recent_above_target_ratio",
+                ]
+            )
+
+        current_history["is_above_target"] = current_history["score"] >= 1
+        summary = (
+            current_history.sort_values(["metric_name", "period_type", "as_of_date"])
+            .groupby(["metric_name", "period_type"], as_index=False)
+            .agg(
+                recent_observation_count=("score", "count"),
+                recent_start_score=("score", "first"),
+                recent_end_score=("score", "last"),
+                recent_mean_score=("score", "mean"),
+                recent_min_score=("score", "min"),
+                recent_max_score=("score", "max"),
+                recent_std_score=("score", "std"),
+                recent_above_target_ratio=("is_above_target", "mean"),
+            )
+            .rename(columns={"period_type": "selected_period"})
+        )
+        return summary
+
+    def _build_executive_brief_payload(
+        self,
+        cleaned_frames: dict[str, pd.DataFrame],
+        latest_metric_snapshot: pd.DataFrame,
+        service_area_summary: pd.DataFrame,
+        freshness: dict[str, Any],
+    ) -> dict[str, Any]:
+        scoped_metrics = latest_metric_snapshot.copy()
+        ranked_metrics = scoped_metrics[scoped_metrics["selected_score"].notna()].copy()
+
+        above_target_rate = float((ranked_metrics["selected_score"] >= 1).mean()) if not ranked_metrics.empty else 0.0
+        median_score = float(ranked_metrics["selected_score"].median()) if not ranked_metrics.empty else 0.0
+        priority_intervention_count = int((scoped_metrics["consulting_bucket"] == "Priority Intervention").sum())
+
+        if above_target_rate >= 0.65 and median_score >= 1.0 and priority_intervention_count <= 3:
+            headline_status = "healthy"
+            headline_text = "Boston's service portfolio appears generally healthy, with most scored services above target."
+        elif above_target_rate >= 0.45 and median_score >= 0.95:
+            headline_status = "mixed"
+            headline_text = "Boston's service portfolio is mixed: core services are functioning, but several priorities need leadership attention."
+        else:
+            headline_status = "concerning"
+            headline_text = "Boston's service portfolio is concerning: too many services are below target or deteriorating."
+
+        best_services = ranked_metrics.sort_values(
+            ["performance_index", "selected_score", "display_name"],
+            ascending=[False, False, True],
+        ).head(5)
+        worst_services = ranked_metrics.sort_values(
+            ["priority_index", "selected_score", "display_name"],
+            ascending=[False, True, True],
+        ).head(5)
+
+        strongest_service_area = (
+            service_area_summary.sort_values("selected_score_average", ascending=False).iloc[0]["service_area"]
+            if not service_area_summary.empty
+            else "Unassigned"
+        )
+        weakest_service_area = (
+            service_area_summary.sort_values("selected_score_average", ascending=True).iloc[0]["service_area"]
+            if not service_area_summary.empty
+            else "Unassigned"
+        )
+
+        supporting_text = (
+            f"{above_target_rate:.0%} of scored services are above target, with {priority_intervention_count} "
+            f"services in priority intervention. Strength is most visible in {strongest_service_area}, while "
+            f"{weakest_service_area} needs the closest managerial follow-up."
+        )
+
+        current_full_file = self.settings.raw_files["current_full_metrics"]
+        current_full_frame = cleaned_frames["current_full_metrics"]
+        analysis_start = self._safe_date_value(current_full_frame["score_calculated_ts"].min())
+        analysis_end = self._safe_date_value(current_full_frame["score_calculated_ts"].max())
+        download_date = datetime.fromtimestamp(current_full_file.stat().st_mtime).date()
+        snapshot_dates = int(current_full_frame["score_calculated_ts"].dt.normalize().nunique())
+
+        data_scope = {
+            "source_focus": "CityScore Full Metric List",
+            "download_date": download_date,
+            "analysis_start_date": analysis_start,
+            "analysis_end_date": analysis_end,
+            "services_in_scope": int(len(scoped_metrics)),
+            "services_ranked": int(len(ranked_metrics)),
+            "snapshot_dates": snapshot_dates,
+            "reading_note": "CityScore values below 1 indicate performance below target; values above 1 indicate performance above target.",
+        }
+
+        portfolio_mix = {
+            bucket: int((scoped_metrics["consulting_bucket"] == bucket).sum())
+            for bucket in ["Leading", "Stable", "Watchlist", "Priority Intervention", "Data Gap"]
+        }
+
+        kpi_cards = [
+            {
+                "label": "Services Above Target",
+                "value": f"{above_target_rate:.0%}",
+                "detail": f"{int((ranked_metrics['selected_score'] >= 1).sum())} of {len(ranked_metrics)} scored services",
+            },
+            {
+                "label": "Median CityScore",
+                "value": f"{median_score:.2f}",
+                "detail": "Median latest available service score",
+            },
+            {
+                "label": "Priority Interventions",
+                "value": str(priority_intervention_count),
+                "detail": "Services classified as requiring immediate leadership attention",
+            },
+        ]
+
+        methodology = [
+            {
+                "title": "Latest score anchors the diagnosis",
+                "description": "Each service starts with its latest available CityScore from the Full Metric List. Scores below 1 are below target and scores above 1 exceed target.",
+            },
+            {
+                "title": "Best performers use more than one snapshot",
+                "description": "Best-service ranking blends the latest score, the average across available day/week/month/quarter views, and the recent trend across the Full Metric List snapshots.",
+            },
+            {
+                "title": "Worst performers combine level and momentum",
+                "description": "Worst-service ranking blends target gap, negative recent trend, weak consistency across periods, and the existing alert severity logic.",
+            },
+            {
+                "title": "Missing services are tracked separately",
+                "description": "Metrics without a current score are excluded from best/worst ranking and shown as data gaps so the Mayor does not confuse missing data with poor performance.",
+            },
+        ]
+
+        recommendations = self._build_recommendations(
+            scoped_metrics=scoped_metrics,
+            best_services=best_services,
+            worst_services=worst_services,
+            freshness=freshness,
+        )
+
+        return {
+            "headline_status": headline_status,
+            "headline_text": headline_text,
+            "supporting_text": supporting_text,
+            "kpi_cards": kpi_cards,
+            "data_scope": data_scope,
+            "score_guide": [
+                "Use 1.0 as the decision boundary: scores below 1 are below target and scores above 1 exceed target.",
+                "The dashboard focuses on the CityScore Full Metric List and uses multiple recent snapshots to reduce one-day ranking bias.",
+                "Priority Intervention metrics combine poor current performance with negative recent movement or weak consistency across periods.",
+            ],
+            "portfolio_mix": portfolio_mix,
+            "best_services": [
+                self._ranked_service_record(row, ranking_score_column="performance_index", mode="best")
+                for _, row in best_services.iterrows()
+            ],
+            "worst_services": [
+                self._ranked_service_record(row, ranking_score_column="priority_index", mode="worst")
+                for _, row in worst_services.iterrows()
+            ],
+            "methodology": methodology,
+            "recommendations": recommendations,
+        }
+
+    def _classify_consulting_bucket(self, row: pd.Series) -> str:
+        current_score = row.get("selected_score")
+        recent_trend = row.get("recent_trend")
+        consistency = row.get("period_above_target_ratio")
+        severity = row.get("severity")
+
+        if pd.isna(current_score) or severity == "blue":
+            return "Data Gap"
+        if severity == "red" or (
+            current_score < 1.0
+            and (self._safe_float_value(recent_trend) or 0.0) < 0
+            and (self._safe_float_value(consistency) or 0.0) < 0.5
+        ):
+            return "Priority Intervention"
+        if current_score >= 1.05 and (self._safe_float_value(recent_trend) or 0.0) >= 0 and (
+            self._safe_float_value(consistency) or 0.0
+        ) >= 0.75:
+            return "Leading"
+        if current_score >= 1.0 and (self._safe_float_value(consistency) or 0.0) >= 0.5:
+            return "Stable"
+        return "Watchlist"
+
+    def _ranked_service_record(
+        self,
+        row: pd.Series,
+        ranking_score_column: str,
+        mode: str,
+    ) -> dict[str, Any]:
+        current_score = self._safe_float_value(row.get("selected_score"))
+        previous_score = self._safe_float_value(row.get("previous_score"))
+        recent_trend = self._safe_float_value(row.get("recent_trend"))
+        period_average = self._safe_float_value(row.get("period_average_score"))
+        above_target_ratio = self._safe_float_value(row.get("period_above_target_ratio"))
+        selected_period = self._safe_period_value(row.get("selected_period"))
+        evidence_parts: list[str] = []
+
+        if mode == "best":
+            if current_score is not None:
+                evidence_parts.append(f"Latest {selected_period or 'available'} score is {current_score:.2f}.")
+            if period_average is not None:
+                evidence_parts.append(f"Cross-period average is {period_average:.2f}.")
+            if recent_trend is not None:
+                evidence_parts.append(
+                    "Recent snapshots are improving."
+                    if recent_trend >= 0
+                    else "Recent snapshots have softened slightly."
+                )
+            if above_target_ratio is not None:
+                evidence_parts.append(f"{above_target_ratio:.0%} of available period views are above target.")
+        else:
+            if current_score is not None:
+                evidence_parts.append(f"Latest {selected_period or 'available'} score is {current_score:.2f}.")
+            if current_score is not None and current_score < 1:
+                evidence_parts.append(f"That is {1 - current_score:.2f} points below the CityScore threshold.")
+            if recent_trend is not None and recent_trend < 0:
+                evidence_parts.append(f"Recent snapshots declined by {abs(recent_trend):.2f} points.")
+            if above_target_ratio is not None:
+                evidence_parts.append(f"Only {above_target_ratio:.0%} of available period views are above target.")
+
+        return {
+            "metric_name": row["metric_name"],
+            "display_name": row["display_name"],
+            "service_area": row["service_area"],
+            "owner_department": row["owner_department"],
+            "classification": self._safe_text_value(row.get("consulting_bucket")) or "Unclassified",
+            "selected_period": selected_period,
+            "current_score": current_score,
+            "previous_score": previous_score,
+            "recent_trend": recent_trend,
+            "period_average_score": period_average,
+            "period_above_target_ratio": above_target_ratio,
+            "ranking_score": self._safe_float_value(row.get(ranking_score_column)),
+            "target": self._safe_float_value(row.get("target")),
+            "evidence": " ".join(evidence_parts) if evidence_parts else "Evidence unavailable.",
+        }
+
+    def _build_recommendations(
+        self,
+        scoped_metrics: pd.DataFrame,
+        best_services: pd.DataFrame,
+        worst_services: pd.DataFrame,
+        freshness: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        recommendations: list[dict[str, Any]] = []
+
+        if not worst_services.empty:
+            top_issue = worst_services.iloc[0]
+            recommendations.append(
+                {
+                    "priority": "Immediate",
+                    "action_title": f"Stabilize {top_issue['display_name']}",
+                    "owner": top_issue["owner_department"],
+                    "service_area": top_issue["service_area"],
+                    "evidence": self._ranked_service_record(top_issue, "priority_index", "worst")["evidence"],
+                    "recommendation": self._service_recovery_recommendation(top_issue),
+                    "next_step": "Ask the department head for a short recovery plan with staffing, backlog, and operational bottlenecks before the next cabinet review.",
+                }
+            )
+
+        if len(worst_services) > 1:
+            watchlist_slice = worst_services.head(3)
+            weakest_area = (
+                watchlist_slice["service_area"].mode().iloc[0]
+                if not watchlist_slice["service_area"].mode().empty
+                else watchlist_slice.iloc[0]["service_area"]
+            )
+            watchlist_names = ", ".join(watchlist_slice["display_name"].tolist())
+            recommendations.append(
+                {
+                    "priority": "High",
+                    "action_title": f"Run a targeted watchlist review for {weakest_area}",
+                    "owner": "Mayor's Office / Chief of Staff",
+                    "service_area": weakest_area,
+                    "evidence": f"The current bottom tier includes {watchlist_names}, pointing to concentrated pressure in {weakest_area}.",
+                    "recommendation": "Hold a cross-functional operating review that compares demand, staffing, and service-cycle performance across the weakest metrics in this area.",
+                    "next_step": "Use the metric drill-downs to confirm whether the issue is a one-snapshot dip or a repeated multi-period pattern.",
+                }
+            )
+
+        if not best_services.empty:
+            exemplar = best_services.iloc[0]
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "action_title": f"Replicate practices from {exemplar['display_name']}",
+                    "owner": exemplar["owner_department"],
+                    "service_area": exemplar["service_area"],
+                    "evidence": self._ranked_service_record(exemplar, "performance_index", "best")["evidence"],
+                    "recommendation": "Document the operating practices behind this service's performance and test whether those habits can transfer to weaker services in the same or adjacent service areas.",
+                    "next_step": "Ask the owning department to share the specific staffing, routing, queue-management, or quality-control practice behind the current result.",
+                }
+            )
+
+        if freshness.get("metrics_missing_selected_score", 0) > 0 or freshness.get("stale_metrics", 0) > 0:
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "action_title": "Close data freshness gaps before the briefing cycle",
+                    "owner": "Analytics Team",
+                    "service_area": "Citywide",
+                    "evidence": (
+                        f"{freshness.get('metrics_missing_selected_score', 0)} metrics are missing a current selected score "
+                        f"and {freshness.get('stale_metrics', 0)} are stale."
+                    ),
+                    "recommendation": "Separate data delays from true service underperformance so the Mayor is not reacting to missing feeds as if they were operational failures.",
+                    "next_step": "Confirm metric cadence expectations and add source-specific escalation for late or incomplete daily loads.",
+                }
+            )
+
+        if not recommendations:
+            recommendations.append(
+                {
+                    "priority": "Monitor",
+                    "action_title": "Maintain current operating cadence",
+                    "owner": "Mayor's Office / Analytics Team",
+                    "service_area": "Citywide",
+                    "evidence": "No concentrated intervention signals were detected in the latest ranked snapshot.",
+                    "recommendation": "Continue monitoring the portfolio and preserve the current briefing rhythm to catch changes early.",
+                    "next_step": "Review the next daily refresh for any movement into watchlist or priority-intervention status.",
+                }
+            )
+
+        return recommendations[:5]
+
+    def _service_recovery_recommendation(self, row: pd.Series) -> str:
+        metric_name = str(row.get("metric_name", ""))
+        service_area = str(row.get("service_area", ""))
+        if "RESPONSE TIME" in metric_name:
+            return "Investigate dispatch, routing, and staffing coverage to reduce response-time slippage and restore threshold performance."
+        if "ON-TIME" in metric_name or "PERMIT" in metric_name:
+            return "Review queue age, staffing allocation, and handoff delays to recover on-time service performance."
+        if "INCIDENTS" in metric_name or "CRIMES" in metric_name or "HOMICIDES" in metric_name or "SHOOTINGS" in metric_name or "STABBINGS" in metric_name:
+            return "Pair the score drop with operational context and ask leadership to explain whether the increase reflects a temporary spike or a broader public-safety pattern."
+        if service_area == "Resident Experience":
+            return "Check response workflows, closure practices, and resident follow-up to recover constituent-facing service quality."
+        return "Run a focused service recovery review to isolate the operational drivers behind the below-target score and assign corrective actions."
 
     def _build_freshness_payload(
         self,
@@ -863,6 +1279,7 @@ class CityScoreRepository:
         latest_metric_snapshot: pd.DataFrame,
         alerts: pd.DataFrame,
         service_area_summary: pd.DataFrame,
+        executive_brief: dict[str, Any],
     ) -> None:
         self._write_frame(metric_master, self.settings.aggregated_dir / "metric_master.csv")
         self._write_frame(metric_history_long, self.settings.aggregated_dir / "metric_history_long.csv")
@@ -870,6 +1287,10 @@ class CityScoreRepository:
         self._write_frame(latest_metric_snapshot, self.settings.aggregated_dir / "latest_metric_snapshot.csv")
         self._write_frame(alerts, self.settings.aggregated_dir / "mayor_alerts.csv")
         self._write_frame(service_area_summary, self.settings.aggregated_dir / "service_area_summary.csv")
+        (self.settings.aggregated_dir / "executive_brief.json").write_text(
+            json.dumps(executive_brief, indent=2, default=str),
+            encoding="utf-8",
+        )
 
     def _write_frame(self, frame: pd.DataFrame, output_path: Path) -> None:
         serializable = frame.copy()
@@ -930,6 +1351,9 @@ class CityScoreRepository:
             "change_vs_previous": self._safe_float_value(row.get("change_vs_previous")),
             "rolling_mean_14": self._safe_float_value(row.get("rolling_mean_14")),
             "rolling_mean_28": self._safe_float_value(row.get("rolling_mean_28")),
+            "consulting_bucket": self._safe_text_value(row.get("consulting_bucket")),
+            "performance_index": self._safe_float_value(row.get("performance_index")),
+            "priority_index": self._safe_float_value(row.get("priority_index")),
             "severity": row["severity"],
             "alert_reasons": row["alert_reasons"],
             "as_of_date": self._safe_date_value(row.get("as_of_date")),
@@ -1113,6 +1537,11 @@ class CityScoreRepository:
         if value is None or pd.isna(value):
             return None
         return float(value)
+
+    def _safe_int_value(self, value: Any) -> int | None:
+        if value is None or pd.isna(value):
+            return None
+        return int(value)
 
     def _safe_date_value(self, value: Any) -> date | None:
         if value is None or pd.isna(value):

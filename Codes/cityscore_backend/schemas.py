@@ -98,6 +98,69 @@ class MayorDailyBriefResponse(BaseModel):
     data_freshness: FreshnessResponse
 
 
+class ExecutiveKpiCard(BaseModel):
+    label: str
+    value: str
+    detail: str
+
+
+class DataScopeSummary(BaseModel):
+    source_focus: str
+    download_date: date | None = None
+    analysis_start_date: date | None = None
+    analysis_end_date: date | None = None
+    services_in_scope: int
+    services_ranked: int
+    snapshot_dates: int
+    reading_note: str
+
+
+class RankedServiceItem(BaseModel):
+    metric_name: str
+    display_name: str
+    service_area: str
+    owner_department: str
+    classification: str
+    selected_period: PeriodType | None = None
+    current_score: float | None = None
+    previous_score: float | None = None
+    recent_trend: float | None = None
+    period_average_score: float | None = None
+    period_above_target_ratio: float | None = None
+    ranking_score: float | None = None
+    target: float | None = None
+    evidence: str
+
+
+class MethodologyItem(BaseModel):
+    title: str
+    description: str
+
+
+class RecommendationItem(BaseModel):
+    priority: str
+    action_title: str
+    owner: str
+    service_area: str
+    evidence: str
+    recommendation: str
+    next_step: str
+
+
+class ExecutiveBriefResponse(BaseModel):
+    headline_status: str
+    headline_text: str
+    supporting_text: str
+    kpi_cards: list[ExecutiveKpiCard]
+    data_scope: DataScopeSummary
+    score_guide: list[str]
+    portfolio_mix: dict[str, int]
+    best_services: list[RankedServiceItem]
+    worst_services: list[RankedServiceItem]
+    methodology: list[MethodologyItem]
+    recommendations: list[RecommendationItem]
+
+
 class MetricSummary(BaseModel):
     metric_name: str
     display_name: str
@@ -113,6 +176,9 @@ class MetricSummary(BaseModel):
     change_vs_previous: float | None = None
     rolling_mean_14: float | None = None
     rolling_mean_28: float | None = None
+    consulting_bucket: str | None = None
+    performance_index: float | None = None
+    priority_index: float | None = None
     severity: Severity
     alert_reasons: list[str] = Field(default_factory=list)
     as_of_date: date | None = None
@@ -142,6 +208,13 @@ class MetricDetailResponse(BaseModel):
     change_vs_previous: float | None = None
     rolling_mean_14: float | None = None
     rolling_mean_28: float | None = None
+    consulting_bucket: str | None = None
+    performance_index: float | None = None
+    priority_index: float | None = None
+    recent_trend: float | None = None
+    period_average_score: float | None = None
+    period_above_target_ratio: float | None = None
+    recent_observation_count: int | None = None
     severity: Severity
     alert_reasons: list[str] = Field(default_factory=list)
     period_snapshots: list[PeriodSnapshot]
