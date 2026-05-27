@@ -1,7 +1,7 @@
 # Boston CityScore: State of City Services
 
 ## Project Link
-<a href="https://boston-mayor-analytics-city-score-p8ouive2d.vercel.app/dashboard" target="_blank">
+<a href="https://boston-mayor-analystics-city-score.vercel.app/dashboard" target="_blank">
   View Live Dashboard
 </a>
 
