@@ -1,0 +1,10 @@
+department_rank,department,service_count,total_priority_weight,department_impact_total,department_score,average_weighted_kpi_score,critical_service_count,critical_underperformers,department_status
+1,Public Safety / Crime,4.0,12.0,26.496588414292006,2.208049034524334,3.208049034524334,4.0,1.0,Above Target
+2,Library Department,1.0,1.0,0.7695173114143541,0.7695173114143541,1.769517311414354,0.0,0.0,Above Target
+3,Traffic Department,1.0,2.0,0.36893785727457207,0.18446892863728603,1.184468928637286,0.0,0.0,Above Target
+4,Boston Public Schools (BPS),1.0,2.0,-0.07059031999999998,-0.03529515999999999,0.96470484,0.0,0.0,Needs Intervention
+5,City Services,3.0,6.0,-0.46285283160966595,-0.077142138601611,0.9540608332491415,1.0,1.0,Needs Intervention
+6,Fire Department (BFD),2.0,4.0,-0.35375993712756626,-0.08843998428189156,0.9110076421193052,1.0,1.0,Needs Intervention
+7,Emergency Medical Services (EMS),1.0,3.0,-0.27075069967570586,-0.09025023322523529,0.9097497667747647,1.0,1.0,Needs Intervention
+8,Public Works / Maintenance,9.0,15.0,-1.7671646346354257,-0.11781097564236172,0.9106621681656077,0.0,0.0,Needs Intervention
+9,Permitting Department,1.0,2.0,-0.6294852835659803,-0.31474264178299016,0.6852573582170098,0.0,0.0,Needs Intervention
