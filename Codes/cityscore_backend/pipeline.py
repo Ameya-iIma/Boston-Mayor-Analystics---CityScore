@@ -40,6 +40,19 @@ CITY_AGG_PERIOD_MAP = {
     "quarter": "cty_scr_quarter_agg",
 }
 
+HISTORY_PERIOD_POINT_LIMITS = {
+    "day": 90,
+    "week": 52,
+    "month": 24,
+    "quarter": 16,
+}
+
+HISTORY_PERIOD_FREQUENCIES = {
+    "week": "W",
+    "month": "M",
+    "quarter": "Q",
+}
+
 SEVERITY_RANK = {"red": 0, "amber": 1, "blue": 2, "green": 3}
 NOTEBOOK_TOP_EXCLUSIONS = {"HOMICIDES (TREND)", "SHOOTINGS (TREND)", "LIBRARY USERS"}
 PERFORMANCE_BAND_THRESHOLDS = [
@@ -336,16 +349,53 @@ class CityScoreRepository:
         if history.empty:
             raise KeyError(canonical_name)
 
-        if period_type:
-            history = history[history["period_type"] == period_type.lower()]
+        normalized_period = period_type.lower() if isinstance(period_type, str) else None
+        if normalized_period:
+            history = history[history["period_type"] == normalized_period]
 
-        latest_as_of_date = history["as_of_date"].max()
-        if pd.notna(latest_as_of_date):
-            cutoff_date = latest_as_of_date - pd.Timedelta(days=days)
-            history = history[history["as_of_date"] >= cutoff_date]
+        history = history[history["score"].notna()].copy()
+        if history.empty:
+            return []
 
-        history = history.sort_values(["period_type", "as_of_date"])
+        if normalized_period:
+            history = self._aggregate_metric_history_for_period(history, normalized_period)
+            history = history.sort_values("as_of_date").tail(
+                HISTORY_PERIOD_POINT_LIMITS.get(normalized_period, 90)
+            )
+        else:
+            latest_as_of_date = history["as_of_date"].max()
+            if pd.notna(latest_as_of_date):
+                cutoff_date = latest_as_of_date - pd.Timedelta(days=days)
+                history = history[history["as_of_date"] >= cutoff_date]
+
+        history = history.sort_values(["period_type", "as_of_date"]).copy()
+        grouped = history.groupby(["metric_name", "period_type"], group_keys=False)
+        history["previous_score"] = grouped["score"].shift(1)
+        history["change_vs_previous"] = history["score"] - history["previous_score"]
+
         return [self._history_record(row) for _, row in history.iterrows()]
+
+    def _aggregate_metric_history_for_period(self, history: pd.DataFrame, period_type: str) -> pd.DataFrame:
+        if period_type == "day":
+            return history.sort_values("as_of_date").copy()
+
+        frequency = HISTORY_PERIOD_FREQUENCIES.get(period_type)
+        if not frequency:
+            return history.sort_values("as_of_date").copy()
+
+        aggregated = history.copy()
+        aggregated["as_of_date"] = pd.to_datetime(aggregated["as_of_date"], errors="coerce")
+        aggregated = aggregated[aggregated["as_of_date"].notna()].copy()
+        if aggregated.empty:
+            return aggregated
+        aggregated["period_bucket"] = aggregated["as_of_date"].dt.to_period(frequency)
+        aggregated = (
+            aggregated.sort_values(["period_bucket", "as_of_date"])
+            .groupby("period_bucket", as_index=False)
+            .tail(1)
+            .drop(columns=["period_bucket"])
+        )
+        return aggregated.sort_values("as_of_date").copy()
 
     def _load_raw_frames(self) -> dict[str, pd.DataFrame]:
         return {

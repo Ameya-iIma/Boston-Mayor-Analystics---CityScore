@@ -35,7 +35,6 @@ const elements = {
   heroGuide: document.getElementById("heroGuide"),
   heroMeta: document.getElementById("heroMeta"),
   heroSummary: document.getElementById("heroSummary"),
-  criticalAlerts: document.getElementById("criticalAlerts"),
   recommendationsList: document.getElementById("recommendationsList"),
   worstServicesList: document.getElementById("worstServicesList"),
   bestServicesList: document.getElementById("bestServicesList"),
@@ -162,7 +161,6 @@ async function fetchJson(url, options = {}) {
 
 function renderDashboard() {
   renderHero();
-  renderUrgentAlerts();
   renderActionAgenda();
   renderPressureMap();
   renderPortfolioEvidence();
@@ -257,43 +255,6 @@ function renderContextCards(scope, health) {
     .join("");
 }
 
-function renderUrgentAlerts() {
-  const alerts = state.overview?.critical_alerts || [];
-  if (!alerts.length) {
-    elements.criticalAlerts.innerHTML = `<div class="empty-state">No immediate exceptions are active right now.</div>`;
-    return;
-  }
-
-  elements.criticalAlerts.innerHTML = alerts
-    .map(
-      (alert) => `
-        <article class="alert-card ${escapeHtml(alert.severity)} is-clickable" data-open-metric="${escapeHtml(alert.metric_name)}">
-          <div class="alert-head">
-            <div>
-              <h4 class="alert-title">${escapeHtml(alert.display_name)}</h4>
-              <div class="alert-meta">
-                <span>${escapeHtml(alert.service_area)}</span>
-                <span>${escapeHtml(titleCase(alert.selected_period || "unknown"))}</span>
-                <span>${formatDate(alert.as_of_date, { month: "short", day: "numeric" })}</span>
-              </div>
-            </div>
-            ${renderSeverityPill(alert.severity)}
-          </div>
-          <div class="kpi-strip kpi-strip-single">
-            <div class="kpi-tile">
-              <span class="kpi-label">Current score</span>
-              <strong class="kpi-value">${formatScore(alert.current_score)}</strong>
-            </div>
-          </div>
-          <div class="signal-summary">
-            ${(alert.alert_reasons || []).slice(0, 2).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("")}
-          </div>
-        </article>
-      `
-    )
-    .join("");
-}
-
 function renderActionAgenda() {
   const brief = state.executiveBrief;
   if (!brief) {
@@ -303,7 +264,11 @@ function renderActionAgenda() {
     return;
   }
 
-  elements.recommendationsList.innerHTML = renderActionTiles(brief.recommendations, brief.worst_services);
+  elements.recommendationsList.innerHTML = renderActionTiles(
+    brief.recommendations,
+    brief.worst_services,
+    brief.best_services
+  );
   elements.worstServicesList.innerHTML = renderRankingBars(brief.worst_services, "worst");
   elements.bestServicesList.innerHTML = renderRankingBars(brief.best_services, "best");
 }
@@ -374,7 +339,7 @@ function renderRanking() {
     <div class="ranked-bars">
       ${sorted
         .map((item, index) => {
-          const width = Math.max(4, (Number(item.composite_score || 0) / maxScore) * 100);
+          const width = clampPercent((Number(item.composite_score || 0) / maxScore) * 100, 4, 100);
           return `
             <article class="ranked-bar-row is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
               <div class="ranked-bar-meta">
@@ -410,17 +375,48 @@ function renderEvidencePack() {
   renderMethodology();
 }
 
-function renderActionTiles(items, risks = []) {
+function renderActionTiles(items, risks = [], strengths = []) {
   if (!items?.length) {
     return `<div class="empty-state">No leadership actions are available.</div>`;
   }
 
+  const allSignals = [...(risks || []), ...(strengths || [])];
+  const signalByMetricName = new Map(
+    allSignals
+      .filter((item) => item?.metric_name)
+      .map((item) => [String(item.metric_name).toLowerCase(), item])
+  );
+
   return items
-    .map((item, index) => {
-      const matchedRisk = risks.find((risk) => item.action_title.toLowerCase().includes(risk.display_name.toLowerCase()));
-      const signalWidth = matchedRisk
-        ? Math.max(12, Math.min(100, Math.abs(Number(matchedRisk.gap_to_target || 0)) * 100))
-        : 40 + index * 12;
+    .map((item) => {
+      const actionTitle = String(item.action_title || "").toLowerCase();
+      const serviceArea = String(item.service_area || "").toLowerCase();
+      const metricFromTitle = allSignals.find(
+        (signal) =>
+          signal?.display_name &&
+          actionTitle.includes(String(signal.display_name).toLowerCase())
+      );
+      const exactMetricMatch =
+        (item.metric_name && signalByMetricName.get(String(item.metric_name).toLowerCase())) ||
+        metricFromTitle ||
+        null;
+      const serviceAreaFallback =
+        risks.find((signal) => String(signal.service_area || "").toLowerCase() === serviceArea) ||
+        strengths.find((signal) => String(signal.service_area || "").toLowerCase() === serviceArea) ||
+        null;
+      const portfolioFallback = risks[0] || strengths[0] || null;
+      const selectedSignal = exactMetricMatch || serviceAreaFallback || portfolioFallback;
+
+      const riskText = Number.isFinite(Number(selectedSignal?.current_score))
+        ? formatScore(selectedSignal.current_score)
+        : "N/A - strategic action";
+      const momentumSource = selectedSignal?.recent_trend ?? selectedSignal?.trend_delta_wq;
+      const momentumText = Number.isFinite(Number(momentumSource))
+        ? formatSigned(momentumSource)
+        : "N/A - strategic action";
+      const signalWidth = selectedSignal
+        ? clampPercent(Math.abs(Number(selectedSignal.gap_to_target || 0)) * 100, 12, 100)
+        : 52;
 
       return `
         <article class="action-tile">
@@ -437,11 +433,11 @@ function renderActionTiles(items, risks = []) {
           <div class="action-metrics">
             <div class="action-stat">
               <span class="kpi-label">Risk signal</span>
-              <strong>${matchedRisk ? formatScore(matchedRisk.current_score) : "—"}</strong>
+              <strong>${escapeHtml(riskText)}</strong>
             </div>
             <div class="action-stat">
               <span class="kpi-label">Momentum</span>
-              <strong>${matchedRisk ? formatSigned(matchedRisk.recent_trend ?? matchedRisk.trend_delta_wq) : "—"}</strong>
+              <strong>${escapeHtml(momentumText)}</strong>
             </div>
             <div class="action-stat">
               <span class="kpi-label">Priority</span>
@@ -492,8 +488,8 @@ function renderRankingBars(items, mode, options = {}) {
           <div class="ranking-bar-track ${mode}">
             <span class="ranking-bar-fill ${mode}" style="--target-width:${
               mode === "best"
-                ? Math.max(8, (Number(item[scoreField] || 0) / maxScore) * 100)
-                : Math.max(8, (Math.abs(Number(item.gap_to_target || 0)) / maxRisk) * 100)
+                ? clampPercent((Number(item[scoreField] || 0) / maxScore) * 100, 8, 100)
+                : clampPercent((Math.abs(Number(item.gap_to_target || 0)) / maxRisk) * 100, 8, 100)
             }%"></span>
           </div>
           <div class="ranking-bar-stats">
@@ -580,7 +576,7 @@ function renderPortfolioMix(mix) {
                 </div>
                 ${renderConsultingBucketPill(bucket)}
               </div>
-              <div class="mix-bar"><span class="${slugify(bucket)}" style="--target-width:${share}%"></span></div>
+              <div class="mix-bar"><span class="${slugify(bucket)}" style="--target-width:${clampPercent(share)}%"></span></div>
             </article>
           `;
         })
@@ -650,7 +646,7 @@ function renderTrendDistributionChart(items) {
     <div class="trend-stack">
       ${items
         .map((item) => {
-          const width = (Number(item.count || 0) / maxCount) * 100;
+          const width = clampPercent((Number(item.count || 0) / maxCount) * 100);
           return `
             <article class="trend-row-card">
               <div class="trend-row-head">
@@ -682,7 +678,6 @@ function renderTopCards() {
   elements.topCardGrid.innerHTML = cards
     .map((card) => {
       const points = getCityHistoryForPeriod(card.period_type).slice(-18);
-      const deltaClass = Number(card.change || 0) >= 0 ? "up" : "down";
       return `
         <article class="top-card">
           <div class="top-card-head">
@@ -693,7 +688,6 @@ function renderTopCards() {
           </div>
           <div class="score-line">
             <strong class="score-value" data-animate-number="${formatScore(card.score)}">${formatScore(card.score)}</strong>
-            <span class="delta-chip ${deltaClass}">${formatSigned(card.change)}</span>
           </div>
           <div class="sparkline-shell">
             ${renderSparkline(points.map((point) => point.score), {
@@ -748,8 +742,8 @@ function renderCityHistory() {
       <strong class="insight-value">${formatScore(latestPoint?.score)}</strong>
     </div>
     <div class="insight-stat">
-      <span class="kpi-label">Change from previous</span>
-      <strong class="insight-value">${formatSigned(latestPoint?.change)}</strong>
+      <span class="kpi-label">Period points</span>
+      <strong class="insight-value">${points.length}</strong>
     </div>
     <div class="insight-stat">
       <span class="kpi-label">Previous reading</span>
@@ -826,10 +820,10 @@ function renderServiceAreas() {
             <div class="service-score">${formatScore(serviceArea.selected_score_average)}</div>
           </div>
           <div class="stacked-bar">
-            <span class="red" style="width:${(serviceArea.red_count / total) * 100}%"></span>
-            <span class="amber" style="width:${(serviceArea.amber_count / total) * 100}%"></span>
-            <span class="blue" style="width:${(serviceArea.blue_count / total) * 100}%"></span>
-            <span class="green" style="width:${(serviceArea.green_count / total) * 100}%"></span>
+            <span class="red" style="width:${clampPercent((serviceArea.red_count / total) * 100)}%"></span>
+            <span class="amber" style="width:${clampPercent((serviceArea.amber_count / total) * 100)}%"></span>
+            <span class="blue" style="width:${clampPercent((serviceArea.blue_count / total) * 100)}%"></span>
+            <span class="green" style="width:${clampPercent((serviceArea.green_count / total) * 100)}%"></span>
           </div>
           <div class="mini-meta">
             <span>Red ${serviceArea.red_count}</span>
@@ -838,9 +832,9 @@ function renderServiceAreas() {
             <span>Green ${serviceArea.green_count}</span>
           </div>
           <div class="micro-bars">
-            <span class="micro-bar red" style="--target-width:${(serviceArea.red_count / total) * 100}%"></span>
-            <span class="micro-bar amber" style="--target-width:${(serviceArea.amber_count / total) * 100}%"></span>
-            <span class="micro-bar green" style="--target-width:${(serviceArea.green_count / total) * 100}%"></span>
+            <span class="micro-bar red" style="--target-width:${clampPercent((serviceArea.red_count / total) * 100)}%"></span>
+            <span class="micro-bar amber" style="--target-width:${clampPercent((serviceArea.amber_count / total) * 100)}%"></span>
+            <span class="micro-bar green" style="--target-width:${clampPercent((serviceArea.green_count / total) * 100)}%"></span>
           </div>
         </article>
       `;
@@ -874,7 +868,7 @@ function renderDepartmentSummary(items) {
             <strong class="department-score">${formatScore(item.composite_score_average)}</strong>
           </div>
           <div class="animated-bar">
-            <span class="${item.priority_intervention_count > 0 ? "priority-intervention" : "leading"}" style="--target-width:${Math.max(4, (Number(item.priority_intervention_count || 0) / Math.max(item.metric_count || 1, 1)) * 100)}%"></span>
+            <span class="${item.priority_intervention_count > 0 ? "priority-intervention" : "leading"}" style="--target-width:${clampPercent((Number(item.priority_intervention_count || 0) / Math.max(item.metric_count || 1, 1)) * 100, 4, 100)}%"></span>
           </div>
           <div class="department-metrics">
             <span>${item.at_or_above_target_count} above target</span>
@@ -1003,10 +997,6 @@ function renderMetricList() {
             <span class="field-label">Current</span>
             <span class="metric-value">${formatScore(metric.current_score)}</span>
           </div>
-          <div class="metric-field">
-            <span class="field-label">Change</span>
-            <span class="metric-change">${formatSigned(metric.change_vs_previous)}</span>
-          </div>
           <div class="metric-field metric-field-severity">
             <span class="field-label">Severity</span>
             <span>${renderSeverityPill(metric.severity)}</span>
@@ -1085,7 +1075,6 @@ function renderDrawer() {
 
   const stats = [
     ["Current score", formatScore(detail.current_score)],
-    ["Change", formatSigned(detail.change_vs_previous)],
     ["Rolling 14", formatScore(detail.rolling_mean_14)],
     ["Target", formatScore(detail.target)],
     ["Recent trend", formatSigned(detail.recent_trend)],
@@ -1214,17 +1203,20 @@ function renderLoadError(error) {
   elements.heroGuide.innerHTML = "";
   elements.heroMeta.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   elements.heroSummary.innerHTML = `<div class="empty-state">Executive KPI cards are unavailable.</div>`;
-  elements.criticalAlerts.innerHTML = `<div class="empty-state">Unable to render current exceptions.</div>`;
 }
 
 function getCityHistoryForPeriod(period) {
-  return state.cityHistory.filter((item) => item.period_type === period);
+  return state.cityHistory
+    .filter((item) => item.period_type === period && Number.isFinite(Number(item.score)))
+    .sort((a, b) => new Date(a.as_of_date) - new Date(b.as_of_date));
 }
 
 function renderLargeChart({ title, subtitle, values, dates, targetValue, lineColor }) {
-  const validValues = values.filter((value) => typeof value === "number");
-  if (!validValues.length) {
-    return `<div class="chart-placeholder">Not enough data to draw this trend.</div>`;
+  const series = sanitizeSeries(values, dates);
+  const chartValues = series.values;
+  const chartDates = series.dates;
+  if (chartValues.length < 2) {
+    return `<div class="chart-placeholder">Not enough period data.</div>`;
   }
 
   const compact = isCompactViewport();
@@ -1234,15 +1226,15 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
   const lineStrokeWidth = compact ? 3.5 : 4;
   const markerRadius = compact ? 5 : 6;
   const markerStrokeWidth = compact ? 2.5 : 3;
-  const path = buildLinePath(values, width, height, padding);
-  const areaPath = buildAreaPath(values, width, height, padding);
-  const minValue = Math.min(...validValues, targetValue ?? Math.min(...validValues));
-  const maxValue = Math.max(...validValues, targetValue ?? Math.max(...validValues));
+  const path = buildLinePath(chartValues, width, height, padding);
+  const areaPath = buildAreaPath(chartValues, width, height, padding);
+  const minValue = Math.min(...chartValues, targetValue ?? Math.min(...chartValues));
+  const maxValue = Math.max(...chartValues, targetValue ?? Math.max(...chartValues));
   const targetY =
     typeof targetValue === "number"
       ? projectY(targetValue, minValue, maxValue, height, padding)
       : null;
-  const latestValue = values[values.length - 1];
+  const latestValue = chartValues[chartValues.length - 1];
   const chartId = slugify(`${title}-${subtitle}`);
 
   return `
@@ -1261,34 +1253,35 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
       ${targetY !== null ? `<line x1="${padding}" y1="${targetY}" x2="${width - padding}" y2="${targetY}" stroke="rgba(154,106,25,0.55)" stroke-dasharray="6 6" stroke-width="2"></line>` : ""}
       <path d="${areaPath}" fill="url(#areaGradient-${chartId})"></path>
       <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${lineColor}" stroke-width="${lineStrokeWidth}" stroke-linecap="round" stroke-linejoin="round"></path>
-      <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="${markerRadius}" fill="${lineColor}" stroke="rgba(255,255,255,0.95)" stroke-width="${markerStrokeWidth}"></circle>
+      <circle cx="${projectX(chartValues.length - 1, chartValues.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="${markerRadius}" fill="${lineColor}" stroke="rgba(255,255,255,0.95)" stroke-width="${markerStrokeWidth}"></circle>
     </svg>
     <div class="chart-caption">
-      <span>${escapeHtml(dates[0] || "Start")}</span>
+      <span>${escapeHtml(chartDates[0] || "Start")}</span>
       <span>Threshold ${typeof targetValue === "number" ? formatScore(targetValue) : "n/a"}</span>
-      <span>${escapeHtml(dates[dates.length - 1] || "Latest")}</span>
+      <span>${escapeHtml(chartDates[chartDates.length - 1] || "Latest")}</span>
     </div>
   `;
 }
 
 function renderSparkline(values, { width, height, stroke }) {
-  const validValues = values.filter((value) => typeof value === "number");
-  if (!validValues.length) {
-    return `<div class="chart-placeholder">No trend data yet.</div>`;
+  const series = sanitizeSeries(values);
+  const chartValues = series.values;
+  if (chartValues.length < 2) {
+    return `<div class="chart-placeholder">Not enough period data.</div>`;
   }
 
   const padding = 8;
-  const path = buildLinePath(values, width, height, padding);
-  const areaPath = buildAreaPath(values, width, height, padding);
-  const latestValue = values[values.length - 1];
-  const minValue = Math.min(...validValues);
-  const maxValue = Math.max(...validValues);
+  const path = buildLinePath(chartValues, width, height, padding);
+  const areaPath = buildAreaPath(chartValues, width, height, padding);
+  const latestValue = chartValues[chartValues.length - 1];
+  const minValue = Math.min(...chartValues);
+  const maxValue = Math.max(...chartValues);
 
   return `
     <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
       <path d="${areaPath}" fill="rgba(48,109,41,0.12)"></path>
       <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
-      <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="4.5" fill="${stroke}" stroke="rgba(255,255,255,0.9)" stroke-width="2"></circle>
+      <circle cx="${projectX(chartValues.length - 1, chartValues.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="4.5" fill="${stroke}" stroke="rgba(255,255,255,0.9)" stroke-width="2"></circle>
     </svg>
   `;
 }
@@ -1338,6 +1331,27 @@ function projectY(value, minValue, maxValue, height, padding) {
 
 function isCompactViewport() {
   return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function sanitizeSeries(values, dates = []) {
+  const cleaned = values
+    .map((value, index) => ({
+      value: Number(value),
+      date: dates[index] ?? null,
+    }))
+    .filter((point) => Number.isFinite(point.value));
+  return {
+    values: cleaned.map((point) => point.value),
+    dates: cleaned.map((point) => point.date),
+  };
+}
+
+function clampPercent(value, min = 0, max = 100) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return min;
+  }
+  return Math.max(min, Math.min(max, numeric));
 }
 
 function animateNumericElements(nodes) {
