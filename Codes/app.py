@@ -20,7 +20,7 @@ from cityscore_backend.settings import get_settings
 def create_app() -> FastAPI:
     settings = get_settings()
     repository = CityScoreRepository(settings)
-    frontend_dir = settings.project_root / "Codes" / "frontend"
+    frontend_dir = settings.project_root / "frontend"
 
     app = FastAPI(
         title="CityScore Mayor Dashboard API",
@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     def warm_pipeline_cache() -> None:
         try:
-            repository.refresh(persist_outputs=True)
+            repository.refresh(persist_outputs=settings.persist_outputs_default)
         except Exception as exc:  # pragma: no cover - runtime protection
             repository.last_refresh_error = str(exc)
 

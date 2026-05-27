@@ -116,10 +116,12 @@ class DataScopeSummary(BaseModel):
 
 
 class RankedServiceItem(BaseModel):
+    rank: int | None = None
     metric_name: str
     display_name: str
     service_area: str
     owner_department: str
+    department: str | None = None
     classification: str
     selected_period: PeriodType | None = None
     current_score: float | None = None
@@ -129,6 +131,14 @@ class RankedServiceItem(BaseModel):
     period_above_target_ratio: float | None = None
     ranking_score: float | None = None
     target: float | None = None
+    composite_score: float | None = None
+    gap_to_target: float | None = None
+    day_score_final: float | None = None
+    trend_delta_dw: float | None = None
+    trend_delta_wq: float | None = None
+    trend_delta_mq: float | None = None
+    trend_label: str | None = None
+    perf_band: str | None = None
     evidence: str
 
 
@@ -147,6 +157,47 @@ class RecommendationItem(BaseModel):
     next_step: str
 
 
+class PortfolioHealthComponent(BaseModel):
+    label: str
+    score: float
+    detail: str
+
+
+class PortfolioHealthSummary(BaseModel):
+    score: float
+    verdict: str
+    verdict_color: str
+    total_services: int
+    services_ranked: int
+    pass_rate_pct: float
+    below_target_pct: float
+    mean_score: float | None = None
+    median_score: float | None = None
+    components: list[PortfolioHealthComponent]
+
+
+class PerformanceBandSummary(BaseModel):
+    band: str
+    count: int
+    percentage: float
+    threshold: str
+
+
+class TrendDistributionItem(BaseModel):
+    label: str
+    count: int
+    percentage: float
+
+
+class DepartmentSummaryItem(BaseModel):
+    department: str
+    metric_count: int
+    composite_score_average: float | None = None
+    at_or_above_target_count: int = 0
+    below_target_count: int = 0
+    priority_intervention_count: int = 0
+
+
 class ExecutiveBriefResponse(BaseModel):
     headline_status: str
     headline_text: str
@@ -154,9 +205,16 @@ class ExecutiveBriefResponse(BaseModel):
     kpi_cards: list[ExecutiveKpiCard]
     data_scope: DataScopeSummary
     score_guide: list[str]
+    portfolio_health: PortfolioHealthSummary
     portfolio_mix: dict[str, int]
+    performance_bands: list[PerformanceBandSummary]
+    trend_distribution: list[TrendDistributionItem]
+    department_summary: list[DepartmentSummaryItem]
     best_services: list[RankedServiceItem]
     worst_services: list[RankedServiceItem]
+    composite_leaders: list[RankedServiceItem]
+    composite_laggards: list[RankedServiceItem]
+    ranked_service_table: list[RankedServiceItem]
     methodology: list[MethodologyItem]
     recommendations: list[RecommendationItem]
 
@@ -166,6 +224,7 @@ class MetricSummary(BaseModel):
     display_name: str
     service_area: str
     owner_department: str
+    department: str | None = None
     cadence: str
     definition: str
     metric_logic: str | None = None
@@ -179,6 +238,14 @@ class MetricSummary(BaseModel):
     consulting_bucket: str | None = None
     performance_index: float | None = None
     priority_index: float | None = None
+    composite_score: float | None = None
+    gap_to_target: float | None = None
+    day_score_final: float | None = None
+    trend_delta_dw: float | None = None
+    trend_delta_wq: float | None = None
+    trend_delta_mq: float | None = None
+    trend_label: str | None = None
+    perf_band: str | None = None
     severity: Severity
     alert_reasons: list[str] = Field(default_factory=list)
     as_of_date: date | None = None
@@ -197,6 +264,7 @@ class MetricDetailResponse(BaseModel):
     display_name: str
     service_area: str
     owner_department: str
+    department: str | None = None
     cadence: str
     definition: str
     metric_logic: str | None = None
@@ -215,6 +283,14 @@ class MetricDetailResponse(BaseModel):
     period_average_score: float | None = None
     period_above_target_ratio: float | None = None
     recent_observation_count: int | None = None
+    composite_score: float | None = None
+    gap_to_target: float | None = None
+    day_score_final: float | None = None
+    trend_delta_dw: float | None = None
+    trend_delta_wq: float | None = None
+    trend_delta_mq: float | None = None
+    trend_label: str | None = None
+    perf_band: str | None = None
     severity: Severity
     alert_reasons: list[str] = Field(default_factory=list)
     period_snapshots: list[PeriodSnapshot]

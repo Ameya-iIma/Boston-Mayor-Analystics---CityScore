@@ -37,7 +37,7 @@
     <main class="dashboard-main">
       <section class="hero-panel panel reveal">
         <div class="hero-copy">
-          <span class="eyebrow">Executive Diagnosis</span>
+          <span class="eyebrow">Mayor's Briefing</span>
           <div class="hero-headline-stack">
             <span class="status-banner" id="headlineStatus">Loading</span>
             <h2 id="heroHeadline">Preparing the state-of-city-services briefing.</h2>
@@ -48,51 +48,17 @@
         <div class="hero-summary" id="heroSummary"></div>
       </section>
 
-      <div class="split-grid reveal executive-scope-grid">
-        <section class="panel scope-panel">
+      <div class="split-grid reveal diagnostic-grid">
+        <section class="panel health-panel">
           <div class="section-topline compact">
             <div>
-              <span class="eyebrow">How To Read CityScore</span>
-              <h3>Interpretation, period, and scope</h3>
+              <span class="eyebrow">Service Portfolio Score</span>
+              <h3>Overall health of city services</h3>
             </div>
           </div>
-          <div id="dataScopeSummary"></div>
+          <div id="portfolioHealthPanel"></div>
         </section>
 
-        <section class="panel portfolio-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Portfolio Mix</span>
-              <h3>How services are classified today</h3>
-            </div>
-          </div>
-          <div id="portfolioMix"></div>
-        </section>
-      </div>
-
-      <div class="split-grid reveal rankings-grid">
-        <section class="panel ranking-panel ranking-panel-best">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Best Performing Services</span>
-              <h3>Top 5 services showing strength</h3>
-            </div>
-          </div>
-          <div class="alert-list" id="bestServicesList"></div>
-        </section>
-
-        <section class="panel ranking-panel ranking-panel-risk">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Worst Performing Services</span>
-              <h3>Bottom 5 services requiring attention</h3>
-            </div>
-          </div>
-          <div class="alert-list" id="worstServicesList"></div>
-        </section>
-      </div>
-
-      <div class="split-grid reveal strategy-grid">
         <section class="panel recommendations-panel">
           <div class="section-topline compact">
             <div>
@@ -102,12 +68,115 @@
           </div>
           <div class="alert-list" id="recommendationsList"></div>
         </section>
+      </div>
+
+      <div class="split-grid reveal rankings-grid">
+        <section class="panel ranking-panel ranking-panel-risk">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Immediate Attention</span>
+              <h3>Services requiring leadership focus</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="worstServicesList"></div>
+        </section>
+
+        <section class="panel ranking-panel ranking-panel-best">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Areas Of Strength</span>
+              <h3>Services performing well today</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="bestServicesList"></div>
+        </section>
+      </div>
+
+      <div class="split-grid reveal composite-rankings-grid">
+        <section class="panel ranking-panel ranking-panel-best">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Operational Standouts</span>
+              <h3>Highest composite service scores</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="compositeLeadersList"></div>
+        </section>
+
+        <section class="panel ranking-panel ranking-panel-risk">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Pressure Points</span>
+              <h3>Lowest composite service scores</h3>
+            </div>
+          </div>
+          <div class="alert-list" id="compositeLaggardsList"></div>
+        </section>
+      </div>
+
+      <div class="split-grid reveal portfolio-detail-grid">
+        <section class="panel ranked-chart-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Full Service Ranking</span>
+              <h3>Composite score and momentum across the portfolio</h3>
+            </div>
+          </div>
+          <div id="rankedServicesChart"></div>
+        </section>
+
+        <section class="panel department-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Pressure By Department</span>
+              <h3>Where issues are clustering operationally</h3>
+            </div>
+          </div>
+          <div id="departmentSummary"></div>
+        </section>
+      </div>
+
+      <div class="split-grid reveal executive-scope-grid">
+        <section class="panel scope-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">How To Read This Brief</span>
+              <h3>Interpretation, period, and scope</h3>
+            </div>
+          </div>
+          <div id="dataScopeSummary"></div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Risk Profile</span>
+              <h3>Band and trend distribution</h3>
+            </div>
+          </div>
+          <div class="analytics-stack">
+            <div id="performanceBandsChart"></div>
+            <div id="trendDistributionChart"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="split-grid reveal strategy-grid">
+        <section class="panel portfolio-panel">
+          <div class="section-topline compact">
+            <div>
+              <span class="eyebrow">Service Mix</span>
+              <h3>How services are classified today</h3>
+            </div>
+          </div>
+          <div id="portfolioMix"></div>
+        </section>
 
         <section class="panel methodology-panel">
           <div class="section-topline compact">
             <div>
-              <span class="eyebrow">Methodology</span>
-              <h3>How services were classified and ranked</h3>
+              <span class="eyebrow">How The Brief Was Built</span>
+              <h3>Ranking and classification logic</h3>
             </div>
           </div>
           <div class="alert-list" id="methodologyList"></div>
@@ -134,8 +203,8 @@
         <section class="panel action-center-panel">
           <div class="section-topline compact">
             <div>
-              <span class="eyebrow">Action Center</span>
-              <h3>Priority alerts for immediate attention</h3>
+              <span class="eyebrow">Current Exceptions</span>
+              <h3>Priority alerts requiring follow-up</h3>
             </div>
           </div>
           <div class="alert-list" id="criticalAlerts"></div>
@@ -144,8 +213,8 @@
         <section class="panel freshness-panel">
           <div class="section-topline compact">
             <div>
-              <span class="eyebrow">Freshness</span>
-              <h3>Coverage and data quality</h3>
+              <span class="eyebrow">Reporting Coverage</span>
+              <h3>Completeness and data quality</h3>
             </div>
           </div>
           <div id="freshnessSummary"></div>
@@ -155,8 +224,8 @@
       <section class="panel service-panel reveal">
         <div class="section-topline">
           <div>
-            <span class="eyebrow">Service Areas</span>
-            <h3>Where the city is stable, slipping, or missing coverage</h3>
+            <span class="eyebrow">Service Area View</span>
+            <h3>Where performance is stable, slipping, or missing</h3>
           </div>
         </div>
         <div class="service-grid" id="serviceAreaGrid"></div>
@@ -165,8 +234,8 @@
       <section class="panel watchlist-panel reveal">
         <div class="section-topline">
           <div>
-            <span class="eyebrow">Metric Watchlist</span>
-            <h3>Click any metric to open its drill-down</h3>
+            <span class="eyebrow">All Services</span>
+            <h3>Search any metric to open its drill-down</h3>
           </div>
         </div>
 

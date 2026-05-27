@@ -30,10 +30,17 @@ const elements = {
   heroSupport: document.getElementById("heroSupport"),
   heroGuide: document.getElementById("heroGuide"),
   heroSummary: document.getElementById("heroSummary"),
+  portfolioHealthPanel: document.getElementById("portfolioHealthPanel"),
+  performanceBandsChart: document.getElementById("performanceBandsChart"),
+  trendDistributionChart: document.getElementById("trendDistributionChart"),
   dataScopeSummary: document.getElementById("dataScopeSummary"),
   portfolioMix: document.getElementById("portfolioMix"),
   bestServicesList: document.getElementById("bestServicesList"),
   worstServicesList: document.getElementById("worstServicesList"),
+  compositeLeadersList: document.getElementById("compositeLeadersList"),
+  compositeLaggardsList: document.getElementById("compositeLaggardsList"),
+  rankedServicesChart: document.getElementById("rankedServicesChart"),
+  departmentSummary: document.getElementById("departmentSummary"),
   recommendationsList: document.getElementById("recommendationsList"),
   methodologyList: document.getElementById("methodologyList"),
   topCardGrid: document.getElementById("topCardGrid"),
@@ -145,8 +152,11 @@ async function fetchJson(url, options = {}) {
 
 function renderDashboard() {
   renderHero();
+  renderPortfolioDiagnostics();
   renderExecutiveScope();
   renderExecutiveRankings();
+  renderCompositeRankings();
+  renderPortfolioDetails();
   renderExecutiveStrategy();
   renderTopCards();
   renderCityHistory();
@@ -202,6 +212,154 @@ function renderHero() {
     .join("");
 
   animateNumericElements(elements.heroSummary.querySelectorAll("[data-animate-number]"));
+}
+
+
+function renderPortfolioDiagnostics() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.portfolioHealthPanel.innerHTML = `<div class="empty-state">Portfolio diagnostics unavailable.</div>`;
+    elements.performanceBandsChart.innerHTML = `<div class="empty-state">Performance bands unavailable.</div>`;
+    elements.trendDistributionChart.innerHTML = `<div class="empty-state">Trend distribution unavailable.</div>`;
+    return;
+  }
+
+  renderPortfolioHealthPanel(brief.portfolio_health);
+  renderPerformanceBandsChart(brief.performance_bands);
+  renderTrendDistributionChart(brief.trend_distribution);
+}
+
+
+function renderPortfolioHealthPanel(health) {
+  if (!health) {
+    elements.portfolioHealthPanel.innerHTML = `<div class="empty-state">Portfolio health score unavailable.</div>`;
+    return;
+  }
+
+  const scorePercent = Math.max(0, Math.min(health.score, 100));
+  elements.portfolioHealthPanel.innerHTML = `
+    <div class="health-score-layout">
+      <div class="health-gauge-shell">
+        <div class="health-gauge" style="--score:${scorePercent}; --tone:${health.verdict_color};">
+          <div class="health-gauge-core">
+            <strong>${escapeHtml(String(Math.round(health.score)))}</strong>
+            <span>/ 100</span>
+            <div class="health-gauge-verdict">${escapeHtml(titleCase(health.verdict))}</div>
+          </div>
+        </div>
+        <div class="health-footnote">
+          <span>${formatPercent(health.pass_rate_pct / 100)} at or above target</span>
+          <span>${formatPercent(health.below_target_pct / 100)} below target</span>
+        </div>
+      </div>
+      <div class="health-components">
+        ${(health.components || [])
+          .map(
+            (component) => `
+              <article class="health-component-card">
+                <div class="health-component-head">
+                  <span class="summary-label">${escapeHtml(component.label)}</span>
+                  <strong class="health-component-score">${formatSigned(component.score)}</strong>
+                </div>
+                <p class="strategy-copy">${escapeHtml(component.detail)}</p>
+              </article>
+            `
+          )
+          .join("")}
+        <article class="health-component-card">
+          <div class="health-component-head">
+            <span class="summary-label">Central Tendency</span>
+            <strong class="health-component-score">${formatScore(health.median_score)}</strong>
+          </div>
+          <p class="strategy-copy">Median service score with mean at ${formatScore(health.mean_score)} across ${health.total_services} rankable services.</p>
+        </article>
+      </div>
+    </div>
+  `;
+}
+
+
+function renderPerformanceBandsChart(bands) {
+  if (!bands?.length) {
+    elements.performanceBandsChart.innerHTML = `<div class="empty-state">Performance band data unavailable.</div>`;
+    return;
+  }
+
+  const total = bands.reduce((sum, item) => sum + Number(item.count || 0), 0) || 1;
+  let start = 0;
+  const slices = bands
+    .filter((item) => item.count > 0)
+    .map((item) => {
+      const ratio = Number(item.count) / total;
+      const end = start + ratio;
+      const color = performanceBandColor(item.band);
+      const slice = `${color} ${start * 100}% ${end * 100}%`;
+      start = end;
+      return slice;
+    })
+    .join(", ");
+
+  elements.performanceBandsChart.innerHTML = `
+    <div class="distribution-layout">
+      <div class="donut-shell">
+        <div class="distribution-donut" style="--distribution:${slices || 'rgba(13,83,14,0.12) 0% 100%'};">
+          <div class="distribution-donut-core">
+            <strong>${total}</strong>
+            <span>services</span>
+          </div>
+        </div>
+      </div>
+      <div class="distribution-legend">
+        ${bands
+          .map(
+            (item) => `
+              <article class="legend-row">
+                <div class="legend-title">
+                  <span class="legend-dot" style="background:${performanceBandColor(item.band)}"></span>
+                  <strong>${escapeHtml(item.band)}</strong>
+                </div>
+                <div class="legend-meta">
+                  <span>${item.count}</span>
+                  <span>${formatPercent(item.percentage / 100)}</span>
+                  <span>${escapeHtml(item.threshold)}</span>
+                </div>
+              </article>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+
+function renderTrendDistributionChart(items) {
+  if (!items?.length) {
+    elements.trendDistributionChart.innerHTML = `<div class="empty-state">Trend distribution unavailable.</div>`;
+    return;
+  }
+
+  const maxCount = Math.max(...items.map((item) => Number(item.count || 0)), 1);
+  elements.trendDistributionChart.innerHTML = `
+    <div class="trend-stack">
+      ${items
+        .map((item) => {
+          const width = (Number(item.count || 0) / maxCount) * 100;
+          return `
+            <article class="trend-row-card">
+              <div class="trend-row-head">
+                <strong>${escapeHtml(item.label)}</strong>
+                <span>${item.count} services · ${formatPercent(item.percentage / 100)}</span>
+              </div>
+              <div class="animated-bar">
+                <span class="${slugify(item.label)}" style="--target-width:${width}%"></span>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
 
@@ -286,6 +444,44 @@ function renderExecutiveRankings() {
 
   elements.bestServicesList.innerHTML = renderRankedServiceCards(brief.best_services, "best");
   elements.worstServicesList.innerHTML = renderRankedServiceCards(brief.worst_services, "worst");
+}
+
+
+function renderCompositeRankings() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.compositeLeadersList.innerHTML = `<div class="empty-state">Operational standouts unavailable.</div>`;
+    elements.compositeLaggardsList.innerHTML = `<div class="empty-state">Pressure-point ranking unavailable.</div>`;
+    return;
+  }
+
+  elements.compositeLeadersList.innerHTML = renderRankedServiceCards(brief.composite_leaders, "best", {
+    scoreLabel: "Portfolio score",
+    trendLabel: "Momentum",
+    scoreField: "composite_score",
+    trendField: "trend_delta_wq",
+    badgeField: "perf_band",
+  });
+  elements.compositeLaggardsList.innerHTML = renderRankedServiceCards(brief.composite_laggards, "worst", {
+    scoreLabel: "Portfolio score",
+    trendLabel: "Momentum",
+    scoreField: "composite_score",
+    trendField: "trend_delta_wq",
+    badgeField: "perf_band",
+  });
+}
+
+
+function renderPortfolioDetails() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.rankedServicesChart.innerHTML = `<div class="empty-state">Ranked service chart unavailable.</div>`;
+    elements.departmentSummary.innerHTML = `<div class="empty-state">Department summary unavailable.</div>`;
+    return;
+  }
+
+  renderRankedServicesChart(brief.ranked_service_table);
+  renderDepartmentSummary(brief.department_summary);
 }
 
 
@@ -608,7 +804,7 @@ function renderMetricList() {
         <article class="metric-row is-clickable" data-open-metric="${escapeHtml(metric.metric_name)}">
           <div class="metric-name-cell">
             <strong>${escapeHtml(metric.display_name)}</strong>
-            <span>${escapeHtml(metric.service_area)} · ${escapeHtml(metric.owner_department)} · ${escapeHtml(metric.consulting_bucket || "Unclassified")}</span>
+            <span>${escapeHtml(metric.department || metric.service_area)} · ${escapeHtml(metric.owner_department)} · ${escapeHtml(metric.consulting_bucket || "Unclassified")} · ${escapeHtml(metric.perf_band || "Unknown")}</span>
           </div>
           <div class="metric-period">${escapeHtml(titleCase(metric.selected_period || "n/a"))}</div>
           <div class="metric-value">${formatScore(metric.current_score)}</div>
@@ -688,7 +884,7 @@ function renderDrawer() {
 
   elements.drawerServiceArea.textContent = detail.service_area;
   elements.drawerTitle.textContent = detail.display_name;
-  elements.drawerDefinition.textContent = detail.definition;
+  elements.drawerDefinition.textContent = `${detail.definition} ${detail.department ? `Grouped in ${detail.department}.` : ""}`;
 
   elements.drawerStatStrip.innerHTML = [
     {
@@ -710,6 +906,14 @@ function renderDrawer() {
     {
       label: "Recent trend",
       value: formatSigned(detail.recent_trend),
+    },
+    {
+      label: "Portfolio score",
+      value: formatScore(detail.composite_score),
+    },
+    {
+      label: "Perf band",
+      value: detail.perf_band || "—",
     },
   ]
     .map(
@@ -760,6 +964,7 @@ function renderDrawer() {
 
   elements.drawerReasons.innerHTML = [
     detail.consulting_bucket ? renderConsultingBucketPill(detail.consulting_bucket) : "",
+    detail.perf_band ? renderPerformanceBandPill(detail.perf_band) : "",
     ...(detail.alert_reasons || []).map((reason) => `<span class="reason-pill">${escapeHtml(reason)}</span>`),
   ]
     .join("");
@@ -838,10 +1043,18 @@ function renderLoadError(error) {
 }
 
 
-function renderRankedServiceCards(items, mode) {
+function renderRankedServiceCards(items, mode, options = {}) {
   if (!items?.length) {
     return `<div class="empty-state">No ranked services available.</div>`;
   }
+
+  const {
+    scoreLabel = "Current score",
+    trendLabel = "Recent trend",
+    scoreField = "current_score",
+    trendField = "recent_trend",
+    badgeField = "classification",
+  } = options;
 
   return items
     .map(
@@ -849,24 +1062,24 @@ function renderRankedServiceCards(items, mode) {
         <article class="ranking-card ${mode} is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
           <div class="alert-head">
             <div>
-              <div class="rank-badge">${index + 1}</div>
+              <div class="rank-badge">${item.rank || index + 1}</div>
               <h4 class="alert-title">${escapeHtml(item.display_name)}</h4>
               <div class="alert-meta">
-                <span>${escapeHtml(item.service_area)}</span>
+                <span>${escapeHtml(item.department || item.service_area)}</span>
                 <span>${escapeHtml(item.owner_department)}</span>
                 <span>${escapeHtml(titleCase(item.selected_period || "unknown"))}</span>
               </div>
             </div>
-            ${renderConsultingBucketPill(item.classification)}
+            ${renderContextPill(item[badgeField], badgeField)}
           </div>
           <div class="kpi-strip">
             <div class="kpi-tile">
-              <span class="kpi-label">Current score</span>
-              <strong class="kpi-value">${formatScore(item.current_score)}</strong>
+              <span class="kpi-label">${escapeHtml(scoreLabel)}</span>
+              <strong class="kpi-value">${formatScore(item[scoreField])}</strong>
             </div>
             <div class="kpi-tile">
-              <span class="kpi-label">Recent trend</span>
-              <strong class="kpi-value">${formatSigned(item.recent_trend)}</strong>
+              <span class="kpi-label">${escapeHtml(trendLabel)}</span>
+              <strong class="kpi-value">${formatSigned(item[trendField])}</strong>
             </div>
           </div>
           <p class="strategy-copy">${escapeHtml(item.evidence)}</p>
@@ -874,6 +1087,82 @@ function renderRankedServiceCards(items, mode) {
       `
     )
     .join("");
+}
+
+
+function renderRankedServicesChart(items) {
+  if (!items?.length) {
+    elements.rankedServicesChart.innerHTML = `<div class="empty-state">No ranked service data available.</div>`;
+    return;
+  }
+
+  const maxScore = Math.max(...items.map((item) => Number(item.composite_score || 0)), 1);
+  elements.rankedServicesChart.innerHTML = `
+    <div class="ranked-bars">
+      ${items
+        .map((item) => {
+          const width = (Number(item.composite_score || 0) / maxScore) * 100;
+          return `
+            <article class="ranked-bar-row is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
+              <div class="ranked-bar-meta">
+                <div class="ranked-bar-title">
+                  <span class="rank-badge small">${item.rank}</span>
+                  <strong>${escapeHtml(item.display_name)}</strong>
+                </div>
+                <div class="alert-meta">
+                  <span>${escapeHtml(item.department || item.service_area)}</span>
+                  <span>${escapeHtml(item.trend_label || "Unknown")}</span>
+                  <span>${escapeHtml(item.perf_band || "Unknown")}</span>
+                </div>
+              </div>
+              <div class="ranked-bar-track">
+                <span class="ranked-bar-fill ${slugify(item.perf_band || "unknown")}" style="--target-width:${width}%"></span>
+              </div>
+              <div class="ranked-bar-stats">
+                <span>Score ${formatScore(item.composite_score)}</span>
+                <span>Gap ${formatSigned(item.gap_to_target)}</span>
+                <span>Momentum ${formatSigned(item.trend_delta_wq)}</span>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+
+function renderDepartmentSummary(items) {
+  if (!items?.length) {
+    elements.departmentSummary.innerHTML = `<div class="empty-state">No department summary available.</div>`;
+    return;
+  }
+
+  elements.departmentSummary.innerHTML = `
+    <div class="department-stack">
+      ${items
+        .map((item) => `
+          <article class="department-card">
+            <div class="alert-head">
+              <div>
+                <h4 class="alert-title">${escapeHtml(item.department)}</h4>
+                <div class="alert-meta">
+                  <span>${item.metric_count} metrics</span>
+                  <span>${item.at_or_above_target_count} at or above target</span>
+                  <span>${item.priority_intervention_count} priority interventions</span>
+                </div>
+              </div>
+              <strong class="department-score">${formatScore(item.composite_score_average)}</strong>
+            </div>
+            <div class="animated-bar">
+              <span class="leading" style="--target-width:${Math.max(0, (Number(item.at_or_above_target_count || 0) / Math.max(item.metric_count || 1, 1)) * 100)}%"></span>
+            </div>
+            <p class="strategy-copy">${item.below_target_count} services in this grouping remain below the target threshold.</p>
+          </article>
+        `)
+        .join("")}
+    </div>
+  `;
 }
 
 
@@ -916,7 +1205,7 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
       <rect x="0" y="0" width="${width}" height="${height}" rx="20" fill="rgba(255,255,255,0.24)"></rect>
       ${targetY !== null ? `<line x1="${padding}" y1="${targetY}" x2="${width - padding}" y2="${targetY}" stroke="rgba(157,107,21,0.6)" stroke-dasharray="6 6" stroke-width="2"></line>` : ""}
       <path d="${areaPath}" fill="url(#areaGradient-${slugify(title)})"></path>
-      <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${lineColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
       <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="6" fill="${lineColor}" stroke="rgba(255,255,255,0.95)" stroke-width="3"></circle>
     </svg>
     <div class="chart-caption">
@@ -950,7 +1239,7 @@ function renderSparkline(values, { width, height, stroke }) {
         </linearGradient>
       </defs>
       <path d="${areaPath}" fill="rgba(48,109,41,0.12)"></path>
-      <path d="${path}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
       <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="4.5" fill="${stroke}" stroke="rgba(255,255,255,0.9)" stroke-width="2"></circle>
     </svg>
   `;
@@ -1048,6 +1337,25 @@ function renderConsultingBucketPill(bucket) {
 }
 
 
+function renderPerformanceBandPill(band) {
+  if (!band) {
+    return "";
+  }
+  return `<span class="band-pill ${slugify(band)}">${escapeHtml(band)}</span>`;
+}
+
+
+function renderContextPill(value, kind) {
+  if (!value) {
+    return "";
+  }
+  if (kind === "perf_band") {
+    return renderPerformanceBandPill(value);
+  }
+  return renderConsultingBucketPill(value);
+}
+
+
 function statusToneClass(status) {
   switch (status) {
     case "healthy":
@@ -1070,6 +1378,24 @@ function severityColor(severity) {
       return "#355f82";
     default:
       return "#0d530e";
+  }
+}
+
+
+function performanceBandColor(band) {
+  switch (band) {
+    case "CRITICAL":
+      return "#CC0000";
+    case "AT RISK":
+      return "#E8A020";
+    case "NEAR MISS":
+      return "#F0D060";
+    case "ON TARGET":
+      return "#8BC34A";
+    case "EXCEEDING":
+      return "#217346";
+    default:
+      return "rgba(13,83,14,0.18)";
   }
 }
 

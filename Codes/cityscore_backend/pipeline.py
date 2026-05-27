@@ -41,6 +41,14 @@ CITY_AGG_PERIOD_MAP = {
 }
 
 SEVERITY_RANK = {"red": 0, "amber": 1, "blue": 2, "green": 3}
+NOTEBOOK_TOP_EXCLUSIONS = {"HOMICIDES (TREND)", "SHOOTINGS (TREND)", "LIBRARY USERS"}
+PERFORMANCE_BAND_THRESHOLDS = [
+    ("CRITICAL", 0.70, "score < 0.70"),
+    ("AT RISK", 0.90, "score 0.70–0.89"),
+    ("NEAR MISS", 1.00, "score 0.90–0.99"),
+    ("ON TARGET", 1.10, "score 1.00–1.09"),
+    ("EXCEEDING", float("inf"), "score ≥ 1.10"),
+]
 
 
 @dataclass
@@ -68,9 +76,11 @@ class CityScoreRepository:
 
     def ensure_ready(self) -> None:
         if self.bundle is None:
-            self.refresh()
+            self.refresh(persist_outputs=self.settings.persist_outputs_default)
 
-    def refresh(self, persist_outputs: bool = True) -> dict[str, Any]:
+    def refresh(self, persist_outputs: bool | None = None) -> dict[str, Any]:
+        if persist_outputs is None:
+            persist_outputs = self.settings.persist_outputs_default
         self.settings.ensure_directories()
         self.settings.validate_input_files()
 
@@ -280,6 +290,7 @@ class CityScoreRepository:
             "display_name": row["display_name"],
             "service_area": row["service_area"],
             "owner_department": row["owner_department"],
+            "department": self._safe_text_value(row.get("department")),
             "cadence": row["cadence"],
             "definition": row["definition"],
             "metric_logic": self._safe_text_value(row.get("metric_logic")),
@@ -298,6 +309,14 @@ class CityScoreRepository:
             "period_average_score": self._safe_float_value(row.get("period_average_score")),
             "period_above_target_ratio": self._safe_float_value(row.get("period_above_target_ratio")),
             "recent_observation_count": self._safe_int_value(row.get("recent_observation_count")),
+            "composite_score": self._safe_float_value(row.get("composite_score")),
+            "gap_to_target": self._safe_float_value(row.get("gap_to_target")),
+            "day_score_final": self._safe_float_value(row.get("day_score_final")),
+            "trend_delta_dw": self._safe_float_value(row.get("trend_delta_dw")),
+            "trend_delta_wq": self._safe_float_value(row.get("trend_delta_wq")),
+            "trend_delta_mq": self._safe_float_value(row.get("trend_delta_mq")),
+            "trend_label": self._safe_text_value(row.get("trend_label")),
+            "perf_band": self._safe_text_value(row.get("perf_band")),
             "severity": row["severity"],
             "alert_reasons": row["alert_reasons"],
             "period_snapshots": period_snapshots,
@@ -673,6 +692,20 @@ class CityScoreRepository:
         )
         for period_type in CURRENT_PERIOD_MAP:
             latest[f"{period_type}_previous_score"] = latest[CURRENT_SUMMARY_PREVIOUS_MAP[period_type]]
+        latest["day_score_final"] = latest["previous_day_score"].combine_first(latest["day_score"])
+        latest["composite_score"] = (
+            latest["quarter_score"]
+            .combine_first(latest["month_score"])
+            .combine_first(latest["week_score"])
+        )
+        latest["gap_to_target"] = latest["composite_score"] - 1.0
+        latest["gap_above_target"] = (latest["composite_score"] - 1.0).clip(lower=0)
+        latest["trend_delta_wq"] = latest["week_score"] - latest["quarter_score"]
+        latest["trend_delta_dw"] = latest["day_score_final"] - latest["week_score"]
+        latest["trend_delta_mq"] = latest["month_score"] - latest["quarter_score"]
+        latest["trend_label"] = latest["trend_delta_wq"].apply(self._trend_label)
+        latest["perf_band"] = latest["composite_score"].apply(self._performance_band)
+        latest["department"] = latest["metric_name"].apply(self._categorize_department)
 
         history_lookup = metric_history_long.sort_values(["metric_name", "period_type", "as_of_date"]).groupby(
             ["metric_name", "period_type"], as_index=False
@@ -844,15 +877,18 @@ class CityScoreRepository:
     ) -> dict[str, Any]:
         scoped_metrics = latest_metric_snapshot.copy()
         ranked_metrics = scoped_metrics[scoped_metrics["selected_score"].notna()].copy()
+        composite_ranked = scoped_metrics[scoped_metrics["composite_score"].notna()].copy()
+        portfolio_health = self._build_portfolio_health_summary(composite_ranked)
 
         above_target_rate = float((ranked_metrics["selected_score"] >= 1).mean()) if not ranked_metrics.empty else 0.0
         median_score = float(ranked_metrics["selected_score"].median()) if not ranked_metrics.empty else 0.0
         priority_intervention_count = int((scoped_metrics["consulting_bucket"] == "Priority Intervention").sum())
 
-        if above_target_rate >= 0.65 and median_score >= 1.0 and priority_intervention_count <= 3:
+        health_verdict = portfolio_health["verdict"]
+        if health_verdict == "HEALTHY":
             headline_status = "healthy"
             headline_text = "Boston's service portfolio appears generally healthy, with most scored services above target."
-        elif above_target_rate >= 0.45 and median_score >= 0.95:
+        elif health_verdict == "MIXED":
             headline_status = "mixed"
             headline_text = "Boston's service portfolio is mixed: core services are functioning, but several priorities need leadership attention."
         else:
@@ -867,6 +903,18 @@ class CityScoreRepository:
             ["priority_index", "selected_score", "display_name"],
             ascending=[False, True, True],
         ).head(5)
+        composite_leaders = (
+            composite_ranked[~composite_ranked["metric_name"].isin(NOTEBOOK_TOP_EXCLUSIONS)]
+            .sort_values(["composite_score", "display_name"], ascending=[False, True])
+            .head(5)
+            .reset_index(drop=True)
+        )
+        composite_laggards = composite_ranked.sort_values(
+            ["composite_score", "display_name"], ascending=[True, True]
+        ).head(5)
+        ranked_service_table = composite_ranked.sort_values(
+            ["composite_score", "display_name"], ascending=[True, True]
+        ).reset_index(drop=True)
 
         strongest_service_area = (
             service_area_summary.sort_values("selected_score_average", ascending=False).iloc[0]["service_area"]
@@ -907,8 +955,16 @@ class CityScoreRepository:
             bucket: int((scoped_metrics["consulting_bucket"] == bucket).sum())
             for bucket in ["Leading", "Stable", "Watchlist", "Priority Intervention", "Data Gap"]
         }
+        performance_bands = self._build_performance_band_summary(composite_ranked)
+        trend_distribution = self._build_trend_distribution(composite_ranked)
+        department_summary = self._build_department_summary(scoped_metrics)
 
         kpi_cards = [
+            {
+                "label": "Portfolio Health Score",
+                "value": f"{portfolio_health['score']:.0f}",
+                "detail": f"{portfolio_health['verdict'].title()} on the notebook-style 0–100 consulting scale",
+            },
             {
                 "label": "Services Above Target",
                 "value": f"{above_target_rate:.0%}",
@@ -932,6 +988,10 @@ class CityScoreRepository:
                 "description": "Each service starts with its latest available CityScore from the Full Metric List. Scores below 1 are below target and scores above 1 exceed target.",
             },
             {
+                "title": "Composite score preserves the notebook logic",
+                "description": "The notebook-style composite score prefers quarter, then month, then week, so leadership rankings are not dominated by the shortest horizon when longer-period evidence exists.",
+            },
+            {
                 "title": "Best performers use more than one snapshot",
                 "description": "Best-service ranking blends the latest score, the average across available day/week/month/quarter views, and the recent trend across the Full Metric List snapshots.",
             },
@@ -942,6 +1002,14 @@ class CityScoreRepository:
             {
                 "title": "Missing services are tracked separately",
                 "description": "Metrics without a current score are excluded from best/worst ranking and shown as data gaps so the Mayor does not confuse missing data with poor performance.",
+            },
+            {
+                "title": "Performance bands stay transparent",
+                "description": "The dashboard carries the notebook thresholds directly: Critical below 0.70, At Risk from 0.70 to 0.89, Near Miss from 0.90 to 0.99, On Target from 1.00 to 1.09, and Exceeding at 1.10 or above.",
+            },
+            {
+                "title": "Composite leaders preserve the notebook exclusion rule",
+                "description": "The notebook-style composite top 5 excludes Homicides, Shootings, and Library Users so the operational standout list is not dominated by extreme trend outliers.",
             },
         ]
 
@@ -962,15 +1030,32 @@ class CityScoreRepository:
                 "Use 1.0 as the decision boundary: scores below 1 are below target and scores above 1 exceed target.",
                 "The dashboard focuses on the CityScore Full Metric List and uses multiple recent snapshots to reduce one-day ranking bias.",
                 "Priority Intervention metrics combine poor current performance with negative recent movement or weak consistency across periods.",
+                "Composite score views preserve the notebook method by preferring quarter, then month, then week.",
             ],
+            "portfolio_health": portfolio_health,
             "portfolio_mix": portfolio_mix,
+            "performance_bands": performance_bands,
+            "trend_distribution": trend_distribution,
+            "department_summary": department_summary,
             "best_services": [
-                self._ranked_service_record(row, ranking_score_column="performance_index", mode="best")
-                for _, row in best_services.iterrows()
+                self._ranked_service_record(row, rank=index + 1, ranking_score_column="performance_index", mode="best")
+                for index, (_, row) in enumerate(best_services.iterrows())
             ],
             "worst_services": [
-                self._ranked_service_record(row, ranking_score_column="priority_index", mode="worst")
-                for _, row in worst_services.iterrows()
+                self._ranked_service_record(row, rank=index + 1, ranking_score_column="priority_index", mode="worst")
+                for index, (_, row) in enumerate(worst_services.iterrows())
+            ],
+            "composite_leaders": [
+                self._ranked_service_record(row, rank=index + 1, ranking_score_column="composite_score", mode="best")
+                for index, (_, row) in enumerate(composite_leaders.iterrows())
+            ],
+            "composite_laggards": [
+                self._ranked_service_record(row, rank=index + 1, ranking_score_column="composite_score", mode="worst")
+                for index, (_, row) in enumerate(composite_laggards.iterrows())
+            ],
+            "ranked_service_table": [
+                self._ranked_service_record(row, rank=index + 1, ranking_score_column="composite_score", mode="ranked")
+                for index, (_, row) in enumerate(ranked_service_table.iterrows())
             ],
             "methodology": methodology,
             "recommendations": recommendations,
@@ -1001,6 +1086,7 @@ class CityScoreRepository:
     def _ranked_service_record(
         self,
         row: pd.Series,
+        rank: int | None,
         ranking_score_column: str,
         mode: str,
     ) -> dict[str, Any]:
@@ -1010,6 +1096,7 @@ class CityScoreRepository:
         period_average = self._safe_float_value(row.get("period_average_score"))
         above_target_ratio = self._safe_float_value(row.get("period_above_target_ratio"))
         selected_period = self._safe_period_value(row.get("selected_period"))
+        composite_score = self._safe_float_value(row.get("composite_score"))
         evidence_parts: list[str] = []
 
         if mode == "best":
@@ -1034,12 +1121,16 @@ class CityScoreRepository:
                 evidence_parts.append(f"Recent snapshots declined by {abs(recent_trend):.2f} points.")
             if above_target_ratio is not None:
                 evidence_parts.append(f"Only {above_target_ratio:.0%} of available period views are above target.")
+            if mode == "ranked" and composite_score is not None:
+                evidence_parts.append(f"Composite score is {composite_score:.2f}.")
 
         return {
+            "rank": rank,
             "metric_name": row["metric_name"],
             "display_name": row["display_name"],
             "service_area": row["service_area"],
             "owner_department": row["owner_department"],
+            "department": self._safe_text_value(row.get("department")),
             "classification": self._safe_text_value(row.get("consulting_bucket")) or "Unclassified",
             "selected_period": selected_period,
             "current_score": current_score,
@@ -1049,6 +1140,14 @@ class CityScoreRepository:
             "period_above_target_ratio": above_target_ratio,
             "ranking_score": self._safe_float_value(row.get(ranking_score_column)),
             "target": self._safe_float_value(row.get("target")),
+            "composite_score": composite_score,
+            "gap_to_target": self._safe_float_value(row.get("gap_to_target")),
+            "day_score_final": self._safe_float_value(row.get("day_score_final")),
+            "trend_delta_dw": self._safe_float_value(row.get("trend_delta_dw")),
+            "trend_delta_wq": self._safe_float_value(row.get("trend_delta_wq")),
+            "trend_delta_mq": self._safe_float_value(row.get("trend_delta_mq")),
+            "trend_label": self._safe_text_value(row.get("trend_label")),
+            "perf_band": self._safe_text_value(row.get("perf_band")),
             "evidence": " ".join(evidence_parts) if evidence_parts else "Evidence unavailable.",
         }
 
@@ -1069,7 +1168,7 @@ class CityScoreRepository:
                     "action_title": f"Stabilize {top_issue['display_name']}",
                     "owner": top_issue["owner_department"],
                     "service_area": top_issue["service_area"],
-                    "evidence": self._ranked_service_record(top_issue, "priority_index", "worst")["evidence"],
+                    "evidence": self._ranked_service_record(top_issue, rank=1, ranking_score_column="priority_index", mode="worst")["evidence"],
                     "recommendation": self._service_recovery_recommendation(top_issue),
                     "next_step": "Ask the department head for a short recovery plan with staffing, backlog, and operational bottlenecks before the next cabinet review.",
                 }
@@ -1103,7 +1202,7 @@ class CityScoreRepository:
                     "action_title": f"Replicate practices from {exemplar['display_name']}",
                     "owner": exemplar["owner_department"],
                     "service_area": exemplar["service_area"],
-                    "evidence": self._ranked_service_record(exemplar, "performance_index", "best")["evidence"],
+                    "evidence": self._ranked_service_record(exemplar, rank=1, ranking_score_column="performance_index", mode="best")["evidence"],
                     "recommendation": "Document the operating practices behind this service's performance and test whether those habits can transfer to weaker services in the same or adjacent service areas.",
                     "next_step": "Ask the owning department to share the specific staffing, routing, queue-management, or quality-control practice behind the current result.",
                 }
@@ -1341,6 +1440,7 @@ class CityScoreRepository:
             "display_name": row["display_name"],
             "service_area": row["service_area"],
             "owner_department": row["owner_department"],
+            "department": self._safe_text_value(row.get("department")),
             "cadence": row["cadence"],
             "definition": row["definition"],
             "metric_logic": self._safe_text_value(row.get("metric_logic")),
@@ -1354,6 +1454,14 @@ class CityScoreRepository:
             "consulting_bucket": self._safe_text_value(row.get("consulting_bucket")),
             "performance_index": self._safe_float_value(row.get("performance_index")),
             "priority_index": self._safe_float_value(row.get("priority_index")),
+            "composite_score": self._safe_float_value(row.get("composite_score")),
+            "gap_to_target": self._safe_float_value(row.get("gap_to_target")),
+            "day_score_final": self._safe_float_value(row.get("day_score_final")),
+            "trend_delta_dw": self._safe_float_value(row.get("trend_delta_dw")),
+            "trend_delta_wq": self._safe_float_value(row.get("trend_delta_wq")),
+            "trend_delta_mq": self._safe_float_value(row.get("trend_delta_mq")),
+            "trend_label": self._safe_text_value(row.get("trend_label")),
+            "perf_band": self._safe_text_value(row.get("perf_band")),
             "severity": row["severity"],
             "alert_reasons": row["alert_reasons"],
             "as_of_date": self._safe_date_value(row.get("as_of_date")),
@@ -1437,6 +1545,181 @@ class CityScoreRepository:
         if below_target or moderate_baseline_gap or recent_decline_flag:
             return "amber", reasons
         return "green", ["On track."]
+
+    def _performance_band(self, score: float | None) -> str:
+        if pd.isna(score):
+            return "Unknown"
+        score_value = float(score)
+        for band, threshold, _ in PERFORMANCE_BAND_THRESHOLDS:
+            if score_value < threshold:
+                return band
+        return "Unknown"
+
+    def _trend_label(self, delta: float | None) -> str:
+        if pd.isna(delta):
+            return "Unknown"
+        if float(delta) >= 0.05:
+            return "Improving"
+        if float(delta) <= -0.05:
+            return "Deteriorating"
+        return "Stable"
+
+    def _categorize_department(self, metric_name: str | None) -> str:
+        metric_name_lower = normalize_metric_name(metric_name).lower()
+        if "library" in metric_name_lower:
+            return "Library Department"
+        if "bfd" in metric_name_lower:
+            return "Fire Department (BFD)"
+        if any(keyword in metric_name_lower for keyword in ["311", "city services satisfaction"]):
+            return "City Services"
+        if "ems" in metric_name_lower:
+            return "Emergency Medical Services (EMS)"
+        if "bps" in metric_name_lower:
+            return "Boston Public Schools (BPS)"
+        if any(keyword in metric_name_lower for keyword in ["homicides", "shootings", "stabbings", "part 1 crimes"]):
+            return "Public Safety / Crime"
+        if "signal repair" in metric_name_lower:
+            return "Traffic Department"
+        if "code enforcement" in metric_name_lower:
+            return "Inspection Services Department"
+        if any(
+            keyword in metric_name_lower
+            for keyword in ["graffiti", "trash", "pothole", "streetlight", "parks", "tree", "sign installation"]
+        ):
+            return "Public Works / Maintenance"
+        if "permit" in metric_name_lower:
+            return "Permitting Department"
+        return "Other / Undefined"
+
+    def _build_portfolio_health_summary(self, composite_ranked: pd.DataFrame) -> dict[str, Any]:
+        total = int(len(composite_ranked))
+        if total == 0:
+            return {
+                "score": 0.0,
+                "verdict": "CONCERNING",
+                "verdict_color": "#8f2c2c",
+                "total_services": 0,
+                "services_ranked": 0,
+                "pass_rate_pct": 0.0,
+                "below_target_pct": 0.0,
+                "mean_score": None,
+                "median_score": None,
+                "components": [],
+            }
+
+        band_counts = composite_ranked["perf_band"].value_counts()
+        trend_counts = composite_ranked["trend_label"].value_counts()
+
+        n_critical = int(band_counts.get("CRITICAL", 0))
+        n_atrisk = int(band_counts.get("AT RISK", 0))
+        n_nearmiss = int(band_counts.get("NEAR MISS", 0))
+        n_ontarget = int(band_counts.get("ON TARGET", 0))
+        n_exceeding = int(band_counts.get("EXCEEDING", 0))
+
+        n_improving = int(trend_counts.get("Improving", 0))
+        n_deteriorating = int(trend_counts.get("Deteriorating", 0))
+        n_below_target = n_critical + n_atrisk + n_nearmiss
+        n_at_or_above = n_ontarget + n_exceeding
+
+        mean_score = self._safe_float_value(composite_ranked["composite_score"].mean())
+        median_score = self._safe_float_value(composite_ranked["composite_score"].median())
+        pct_passing = n_at_or_above / total * 100
+        pct_failing = n_below_target / total * 100
+
+        component_1 = pct_passing * 0.40
+        raw_penalty = (n_critical * 3 + n_atrisk * 1.5) / total * 10
+        component_2 = min(raw_penalty, 30.0)
+        net_trend = (n_improving - n_deteriorating) / total
+        component_3 = (net_trend + 1) / 2 * 30
+        health_score = max(0.0, min(100.0, component_1 - component_2 + component_3))
+
+        if health_score >= 70:
+            verdict = "HEALTHY"
+            verdict_color = "#217346"
+        elif health_score >= 45:
+            verdict = "MIXED"
+            verdict_color = "#C5941A"
+        else:
+            verdict = "CONCERNING"
+            verdict_color = "#CC0000"
+
+        return {
+            "score": round(health_score, 1),
+            "verdict": verdict,
+            "verdict_color": verdict_color,
+            "total_services": total,
+            "services_ranked": total,
+            "pass_rate_pct": round(pct_passing, 1),
+            "below_target_pct": round(pct_failing, 1),
+            "mean_score": mean_score,
+            "median_score": median_score,
+            "components": [
+                {
+                    "label": "Pass Rate",
+                    "score": round(component_1, 1),
+                    "detail": f"{n_at_or_above} of {total} services are on target or exceeding target.",
+                },
+                {
+                    "label": "Severity Penalty",
+                    "score": round(-component_2, 1),
+                    "detail": f"{n_critical} critical and {n_atrisk} at-risk services create the penalty.",
+                },
+                {
+                    "label": "Trend Momentum",
+                    "score": round(component_3, 1),
+                    "detail": f"{n_improving} services are improving versus {n_deteriorating} deteriorating.",
+                },
+            ],
+        }
+
+    def _build_performance_band_summary(self, composite_ranked: pd.DataFrame) -> list[dict[str, Any]]:
+        total = int(len(composite_ranked)) or 1
+        band_counts = composite_ranked["perf_band"].value_counts()
+        return [
+            {
+                "band": band,
+                "count": int(band_counts.get(band, 0)),
+                "percentage": round(int(band_counts.get(band, 0)) / total * 100, 1),
+                "threshold": threshold,
+            }
+            for band, _, threshold in PERFORMANCE_BAND_THRESHOLDS
+        ]
+
+    def _build_trend_distribution(self, composite_ranked: pd.DataFrame) -> list[dict[str, Any]]:
+        total = int(len(composite_ranked)) or 1
+        trend_counts = composite_ranked["trend_label"].value_counts()
+        return [
+            {
+                "label": label,
+                "count": int(trend_counts.get(label, 0)),
+                "percentage": round(int(trend_counts.get(label, 0)) / total * 100, 1),
+            }
+            for label in ["Improving", "Stable", "Deteriorating", "Unknown"]
+        ]
+
+    def _build_department_summary(self, scoped_metrics: pd.DataFrame) -> list[dict[str, Any]]:
+        summary = (
+            scoped_metrics.groupby("department", as_index=False)
+            .agg(
+                metric_count=("metric_name", "count"),
+                composite_score_average=("composite_score", "mean"),
+                at_or_above_target_count=("composite_score", lambda scores: int((scores >= 1).sum())),
+                below_target_count=("composite_score", lambda scores: int((scores < 1).sum())),
+                priority_intervention_count=("consulting_bucket", lambda items: int((items == "Priority Intervention").sum())),
+            )
+            .sort_values(["composite_score_average", "metric_count"], ascending=[False, False])
+        )
+        return [
+            {
+                "department": row["department"],
+                "metric_count": int(row["metric_count"]),
+                "composite_score_average": self._safe_float_value(row.get("composite_score_average")),
+                "at_or_above_target_count": int(row.get("at_or_above_target_count", 0)),
+                "below_target_count": int(row.get("below_target_count", 0)),
+                "priority_intervention_count": int(row.get("priority_intervention_count", 0)),
+            }
+            for _, row in summary.iterrows()
+        ]
 
     def _score_to_severity(self, score: float | None) -> str:
         if pd.isna(score):
