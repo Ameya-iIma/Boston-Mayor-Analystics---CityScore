@@ -1,7 +1,9 @@
 # Boston CityScore: State of City Services
 
 ## Project Link
-[View Live Dashboard](https://boston-mayor-analytics-city-score-p8ouive2d.vercel.app/dashboard)
+<a href="https://boston-mayor-analytics-city-score-p8ouive2d.vercel.app/dashboard" target="_blank">
+  View Live Dashboard
+</a>
 
 MBA analytics consulting project for the Mayor of Boston. This project turns the CityScore datasets into a mayor-ready executive dashboard and backend pipeline that answer three questions for each service:
 
