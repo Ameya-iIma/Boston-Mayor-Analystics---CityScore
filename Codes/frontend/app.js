@@ -279,14 +279,10 @@ function renderUrgentAlerts() {
             </div>
             ${renderSeverityPill(alert.severity)}
           </div>
-          <div class="kpi-strip">
+          <div class="kpi-strip kpi-strip-single">
             <div class="kpi-tile">
               <span class="kpi-label">Current score</span>
               <strong class="kpi-value">${formatScore(alert.current_score)}</strong>
-            </div>
-            <div class="kpi-tile">
-              <span class="kpi-label">Change</span>
-              <strong class="kpi-value">${formatSigned(alert.change_vs_previous)}</strong>
             </div>
           </div>
           <div class="signal-summary">
