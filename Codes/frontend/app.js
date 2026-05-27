@@ -1,5 +1,6 @@
 const API_BASE = "/api/v1";
 const PERIODS = ["day", "week", "month", "quarter"];
+let resizeRerenderTimer = null;
 
 const state = {
   executiveBrief: null,
@@ -86,6 +87,20 @@ function bindEvents() {
   elements.metricSearchInput.addEventListener("input", (event) => {
     state.filters.query = event.target.value.trim().toLowerCase();
     renderMetricList();
+  });
+
+  window.addEventListener("resize", () => {
+    if (!state.overview) {
+      return;
+    }
+    window.clearTimeout(resizeRerenderTimer);
+    resizeRerenderTimer = window.setTimeout(() => {
+      renderTopCards();
+      renderCityHistory();
+      if (state.drawer.detail) {
+        renderDrawer();
+      }
+    }, 140);
   });
 }
 
@@ -664,6 +679,10 @@ function renderTopCards() {
     return;
   }
 
+  const compact = isCompactViewport();
+  const sparklineWidth = compact ? 300 : 320;
+  const sparklineHeight = compact ? 112 : 84;
+
   elements.topCardGrid.innerHTML = cards
     .map((card) => {
       const points = getCityHistoryForPeriod(card.period_type).slice(-18);
@@ -682,8 +701,8 @@ function renderTopCards() {
           </div>
           <div class="sparkline-shell">
             ${renderSparkline(points.map((point) => point.score), {
-              width: 320,
-              height: 84,
+              width: sparklineWidth,
+              height: sparklineHeight,
               stroke: severityColor(card.status),
             })}
           </div>
@@ -980,10 +999,22 @@ function renderMetricList() {
             <strong>${escapeHtml(metric.display_name)}</strong>
             <span>${escapeHtml(metric.department || metric.service_area)} · ${escapeHtml(metric.owner_department)} · ${escapeHtml(metric.consulting_bucket || "Unclassified")}</span>
           </div>
-          <div class="metric-period">${escapeHtml(titleCase(metric.selected_period || "n/a"))}</div>
-          <div class="metric-value">${formatScore(metric.current_score)}</div>
-          <div class="metric-change">${formatSigned(metric.change_vs_previous)}</div>
-          <div>${renderSeverityPill(metric.severity)}</div>
+          <div class="metric-field">
+            <span class="field-label">Period</span>
+            <span class="metric-period">${escapeHtml(titleCase(metric.selected_period || "n/a"))}</span>
+          </div>
+          <div class="metric-field">
+            <span class="field-label">Current</span>
+            <span class="metric-value">${formatScore(metric.current_score)}</span>
+          </div>
+          <div class="metric-field">
+            <span class="field-label">Change</span>
+            <span class="metric-change">${formatSigned(metric.change_vs_previous)}</span>
+          </div>
+          <div class="metric-field metric-field-severity">
+            <span class="field-label">Severity</span>
+            <span>${renderSeverityPill(metric.severity)}</span>
+          </div>
         </article>
       `
     )
@@ -1200,9 +1231,13 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
     return `<div class="chart-placeholder">Not enough data to draw this trend.</div>`;
   }
 
-  const width = 760;
-  const height = 280;
-  const padding = 18;
+  const compact = isCompactViewport();
+  const width = compact ? 700 : 760;
+  const height = compact ? 360 : 300;
+  const padding = compact ? 22 : 18;
+  const lineStrokeWidth = compact ? 3.5 : 4;
+  const markerRadius = compact ? 5 : 6;
+  const markerStrokeWidth = compact ? 2.5 : 3;
   const path = buildLinePath(values, width, height, padding);
   const areaPath = buildAreaPath(values, width, height, padding);
   const minValue = Math.min(...validValues, targetValue ?? Math.min(...validValues));
@@ -1229,8 +1264,8 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
       <rect x="0" y="0" width="${width}" height="${height}" rx="20" fill="rgba(255,255,255,0.18)"></rect>
       ${targetY !== null ? `<line x1="${padding}" y1="${targetY}" x2="${width - padding}" y2="${targetY}" stroke="rgba(154,106,25,0.55)" stroke-dasharray="6 6" stroke-width="2"></line>` : ""}
       <path d="${areaPath}" fill="url(#areaGradient-${chartId})"></path>
-      <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${lineColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
-      <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="6" fill="${lineColor}" stroke="rgba(255,255,255,0.95)" stroke-width="3"></circle>
+      <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${lineColor}" stroke-width="${lineStrokeWidth}" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="${markerRadius}" fill="${lineColor}" stroke="rgba(255,255,255,0.95)" stroke-width="${markerStrokeWidth}"></circle>
     </svg>
     <div class="chart-caption">
       <span>${escapeHtml(dates[0] || "Start")}</span>
@@ -1303,6 +1338,10 @@ function projectY(value, minValue, maxValue, height, padding) {
   }
   const ratio = (value - minValue) / (maxValue - minValue);
   return height - padding - ratio * (height - padding * 2);
+}
+
+function isCompactViewport() {
+  return window.matchMedia("(max-width: 900px)").matches;
 }
 
 function animateNumericElements(nodes) {
