@@ -3,272 +3,272 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Boston CityScore: State of City Services</title>
+    <title>Boston CityScore | State of City Services</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <div class="page-veil"></div>
-    <div class="page-blob page-blob-a"></div>
-    <div class="page-blob page-blob-b"></div>
-
     <div class="loading-screen" id="loadingScreen">
       <div class="loading-card">
-        <div class="loading-sigil"></div>
+        <div class="loading-mark"></div>
         <p>Preparing the mayor's briefing...</p>
       </div>
     </div>
 
-    <header class="masthead">
-      <div class="masthead-brand">
-        <span class="eyebrow">Boston CityScore</span>
-        <h1>State of City Services</h1>
-        <p id="mastheadSubtitle">Loading executive diagnosis, portfolio rankings, and service-area signals.</p>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="topbar-kicker">Boston CityScore</span>
+        <div>
+          <h1>State of City Services</h1>
+          <p id="mastheadSubtitle">Loading executive diagnosis, service signals, and recommended actions.</p>
+        </div>
       </div>
 
-      <div class="masthead-actions">
-        <div class="status-stack">
-          <span class="status-chip" id="healthChip">Booting</span>
-          <span class="status-chip muted" id="asOfChip">As of: --</span>
+      <div class="topbar-actions">
+        <div class="topbar-status">
+          <span class="status-chip" id="healthChip">Loading</span>
+          <span class="status-chip quiet" id="asOfChip">As of: --</span>
         </div>
         <button class="primary-button" type="button" data-action="refresh">Refresh Data</button>
       </div>
     </header>
 
-    <main class="dashboard-main">
-      <section class="hero-panel panel reveal">
-        <div class="hero-copy">
-          <span class="eyebrow">Mayor's Briefing</span>
-          <div class="hero-headline-stack">
+    <main class="briefing-shell">
+      <section class="hero-grid">
+        <article class="panel hero-panel">
+          <div class="panel-head">
+            <span class="eyebrow">Mayor's Brief</span>
             <span class="status-banner" id="headlineStatus">Loading</span>
-            <h2 id="heroHeadline">Preparing the state-of-city-services briefing.</h2>
           </div>
-          <p id="heroSupport">Waiting for the latest executive summary.</p>
-          <div class="alert-reasons" id="heroGuide"></div>
-        </div>
-        <div class="hero-summary" id="heroSummary"></div>
+          <h2 id="heroHeadline">Preparing the current state of city services.</h2>
+          <p class="hero-support" id="heroSupport">Waiting for the latest executive summary.</p>
+          <div class="guide-list" id="heroGuide"></div>
+        </article>
+
+        <aside class="panel context-panel">
+          <div class="section-heading compact">
+            <span class="eyebrow">Brief Context</span>
+            <h3>What this briefing covers</h3>
+          </div>
+          <div class="context-grid" id="heroMeta"></div>
+        </aside>
       </section>
 
-      <div class="split-grid reveal diagnostic-grid">
-        <section class="panel health-panel">
-          <div class="section-topline compact">
+      <section class="kpi-rail" id="heroSummary"></section>
+
+      <section class="panel urgent-panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Immediate Exceptions</span>
+            <h3>Issues that need active follow-up</h3>
+          </div>
+        </div>
+        <div class="urgent-grid" id="criticalAlerts"></div>
+      </section>
+
+      <section class="brief-grid three-up">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
-              <span class="eyebrow">Service Portfolio Score</span>
-              <h3>Overall health of city services</h3>
+              <span class="eyebrow">Leadership Agenda</span>
+              <h3>What the mayor should ask for next</h3>
+            </div>
+          </div>
+          <div class="card-stack" id="recommendationsList"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">Pressure Points</span>
+              <h3>Services needing intervention</h3>
+            </div>
+          </div>
+          <div class="card-stack" id="worstServicesList"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">Areas Of Strength</span>
+              <h3>Services delivering reliably</h3>
+            </div>
+          </div>
+          <div class="card-stack" id="bestServicesList"></div>
+        </article>
+      </section>
+
+      <section class="brief-grid two-up">
+        <article class="panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">Pressure Map</span>
+              <h3>Where performance is slipping</h3>
+            </div>
+          </div>
+          <div class="service-grid" id="serviceAreaGrid"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">Department Lens</span>
+              <h3>Where issues are clustering operationally</h3>
+            </div>
+          </div>
+          <div class="department-list" id="departmentSummary"></div>
+        </article>
+      </section>
+
+      <section class="brief-grid evidence-grid">
+        <article class="panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">Portfolio Health</span>
+              <h3>Overall service health score</h3>
             </div>
           </div>
           <div id="portfolioHealthPanel"></div>
-        </section>
+        </article>
 
-        <section class="panel recommendations-panel">
-          <div class="section-topline compact">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
-              <span class="eyebrow">Leadership Actions</span>
-              <h3>What the mayor should do next</h3>
+              <span class="eyebrow">Risk Profile</span>
+              <h3>How the portfolio is distributed</h3>
             </div>
           </div>
-          <div class="alert-list" id="recommendationsList"></div>
-        </section>
-      </div>
+          <div class="evidence-stack">
+            <div id="portfolioMix"></div>
+            <div id="performanceBandsChart"></div>
+            <div id="trendDistributionChart"></div>
+          </div>
+        </article>
 
-      <div class="split-grid reveal rankings-grid">
-        <section class="panel ranking-panel ranking-panel-risk">
-          <div class="section-topline compact">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
-              <span class="eyebrow">Immediate Attention</span>
-              <h3>Services requiring leadership focus</h3>
+              <span class="eyebrow">Current CityScore</span>
+              <h3>Day, week, month, and quarter</h3>
             </div>
           </div>
-          <div class="alert-list" id="worstServicesList"></div>
-        </section>
+          <div class="period-card-grid" id="topCardGrid"></div>
+        </article>
+      </section>
 
-        <section class="panel ranking-panel ranking-panel-best">
-          <div class="section-topline compact">
+      <section class="brief-grid two-up">
+        <article class="panel city-history-panel">
+          <div class="section-heading">
             <div>
-              <span class="eyebrow">Areas Of Strength</span>
-              <h3>Services performing well today</h3>
+              <span class="eyebrow">City Trajectory</span>
+              <h3>Movement across day, week, month, and quarter</h3>
+            </div>
+            <div class="segmented-control" id="cityPeriodToggle"></div>
+          </div>
+          <div class="city-history-layout">
+            <div class="city-history-chart" id="cityHistoryChart"></div>
+            <div class="city-history-insight" id="cityHistoryInsight"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">Coverage And Data Quality</span>
+              <h3>How complete the current picture is</h3>
             </div>
           </div>
-          <div class="alert-list" id="bestServicesList"></div>
-        </section>
-      </div>
+          <div id="freshnessSummary"></div>
+        </article>
+      </section>
 
-      <div class="split-grid reveal composite-rankings-grid">
-        <section class="panel ranking-panel ranking-panel-best">
-          <div class="section-topline compact">
+      <section class="brief-grid two-up">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
               <span class="eyebrow">Operational Standouts</span>
               <h3>Highest composite service scores</h3>
             </div>
           </div>
-          <div class="alert-list" id="compositeLeadersList"></div>
-        </section>
+          <div class="card-stack" id="compositeLeadersList"></div>
+        </article>
 
-        <section class="panel ranking-panel ranking-panel-risk">
-          <div class="section-topline compact">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
-              <span class="eyebrow">Pressure Points</span>
+              <span class="eyebrow">Operational Laggards</span>
               <h3>Lowest composite service scores</h3>
             </div>
           </div>
-          <div class="alert-list" id="compositeLaggardsList"></div>
-        </section>
-      </div>
+          <div class="card-stack" id="compositeLaggardsList"></div>
+        </article>
+      </section>
 
-      <div class="split-grid reveal portfolio-detail-grid">
-        <section class="panel ranked-chart-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Full Service Ranking</span>
-              <h3>Composite score and momentum across the portfolio</h3>
-            </div>
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Full Service Ranking</span>
+            <h3>Composite performance and momentum across the portfolio</h3>
           </div>
-          <div id="rankedServicesChart"></div>
-        </section>
+        </div>
+        <div id="rankedServicesChart"></div>
+      </section>
 
-        <section class="panel department-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Pressure By Department</span>
-              <h3>Where issues are clustering operationally</h3>
-            </div>
-          </div>
-          <div id="departmentSummary"></div>
-        </section>
-      </div>
-
-      <div class="split-grid reveal executive-scope-grid">
-        <section class="panel scope-panel">
-          <div class="section-topline compact">
+      <section class="brief-grid explorer-grid">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
               <span class="eyebrow">How To Read This Brief</span>
-              <h3>Interpretation, period, and scope</h3>
+              <h3>Scope, definitions, and methodology</h3>
             </div>
           </div>
-          <div id="dataScopeSummary"></div>
-        </section>
+          <div class="evidence-pack">
+            <div id="dataScopeSummary"></div>
+            <div class="methodology-list" id="methodologyList"></div>
+          </div>
+        </article>
 
-        <section class="panel analytics-panel">
-          <div class="section-topline compact">
+        <article class="panel">
+          <div class="section-heading compact">
             <div>
-              <span class="eyebrow">Risk Profile</span>
-              <h3>Band and trend distribution</h3>
+              <span class="eyebrow">All Services</span>
+              <h3>Search any metric to open its drill-down</h3>
             </div>
           </div>
-          <div class="analytics-stack">
-            <div id="performanceBandsChart"></div>
-            <div id="trendDistributionChart"></div>
-          </div>
-        </section>
-      </div>
 
-      <div class="split-grid reveal strategy-grid">
-        <section class="panel portfolio-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Service Mix</span>
-              <h3>How services are classified today</h3>
+          <div class="watchlist-controls">
+            <label class="search-shell">
+              <span>Search metrics</span>
+              <input
+                id="metricSearchInput"
+                type="search"
+                placeholder="Try BFD, permits, pothole, library..."
+                autocomplete="off"
+              />
+            </label>
+
+            <div class="filters">
+              <div class="filter-block">
+                <span class="filter-label">Severity</span>
+                <div class="chip-row" id="severityFilters"></div>
+              </div>
+              <div class="filter-block">
+                <span class="filter-label">Service area</span>
+                <div class="chip-row" id="serviceAreaFilters"></div>
+              </div>
             </div>
           </div>
-          <div id="portfolioMix"></div>
-        </section>
 
-        <section class="panel methodology-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">How The Brief Was Built</span>
-              <h3>Ranking and classification logic</h3>
+          <div class="metric-list-shell">
+            <div class="metric-list-header">
+              <span>Metric</span>
+              <span>Period</span>
+              <span>Current</span>
+              <span>Change</span>
+              <span>Severity</span>
             </div>
+            <div class="metric-list" id="metricList"></div>
           </div>
-          <div class="alert-list" id="methodologyList"></div>
-        </section>
-      </div>
-
-      <section class="top-card-grid reveal" id="topCardGrid"></section>
-
-      <section class="panel city-history-panel reveal">
-        <div class="section-topline">
-          <div>
-            <span class="eyebrow">City Trajectory</span>
-            <h3>Movement across day, week, month, and quarter</h3>
-          </div>
-          <div class="segmented-control" id="cityPeriodToggle"></div>
-        </div>
-        <div class="city-history-layout">
-          <div class="city-history-chart" id="cityHistoryChart"></div>
-          <div class="city-history-insight" id="cityHistoryInsight"></div>
-        </div>
-      </section>
-
-      <div class="split-grid reveal">
-        <section class="panel action-center-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Current Exceptions</span>
-              <h3>Priority alerts requiring follow-up</h3>
-            </div>
-          </div>
-          <div class="alert-list" id="criticalAlerts"></div>
-        </section>
-
-        <section class="panel freshness-panel">
-          <div class="section-topline compact">
-            <div>
-              <span class="eyebrow">Reporting Coverage</span>
-              <h3>Completeness and data quality</h3>
-            </div>
-          </div>
-          <div id="freshnessSummary"></div>
-        </section>
-      </div>
-
-      <section class="panel service-panel reveal">
-        <div class="section-topline">
-          <div>
-            <span class="eyebrow">Service Area View</span>
-            <h3>Where performance is stable, slipping, or missing</h3>
-          </div>
-        </div>
-        <div class="service-grid" id="serviceAreaGrid"></div>
-      </section>
-
-      <section class="panel watchlist-panel reveal">
-        <div class="section-topline">
-          <div>
-            <span class="eyebrow">All Services</span>
-            <h3>Search any metric to open its drill-down</h3>
-          </div>
-        </div>
-
-        <div class="watchlist-controls">
-          <label class="search-shell">
-            <span>Search metrics</span>
-            <input
-              id="metricSearchInput"
-              type="search"
-              placeholder="Try BFD, permits, pothole, library..."
-              autocomplete="off"
-            />
-          </label>
-          <div class="filter-cluster">
-            <div class="filter-label">Severity</div>
-            <div class="chip-row" id="severityFilters"></div>
-          </div>
-          <div class="filter-cluster">
-            <div class="filter-label">Service area</div>
-            <div class="chip-row" id="serviceAreaFilters"></div>
-          </div>
-        </div>
-
-        <div class="metric-list-shell">
-          <div class="metric-list-header">
-            <span>Metric</span>
-            <span>Period</span>
-            <span>Current</span>
-            <span>Change</span>
-            <span>Severity</span>
-          </div>
-          <div class="metric-list" id="metricList"></div>
-        </div>
+        </article>
       </section>
     </main>
 
@@ -278,14 +278,14 @@
         <div>
           <span class="eyebrow" id="drawerServiceArea">Metric Detail</span>
           <h3 id="drawerTitle">Select a metric</h3>
-          <p id="drawerDefinition">Click an alert or watchlist metric to explore its trend.</p>
+          <p id="drawerDefinition">Click a service to open its history and context.</p>
         </div>
         <button class="drawer-close" type="button" data-action="close-drawer" aria-label="Close panel">×</button>
       </div>
 
       <div class="drawer-body">
         <div class="drawer-stat-strip" id="drawerStatStrip"></div>
-        <div class="section-topline compact">
+        <div class="section-heading compact drawer-section-heading">
           <div>
             <span class="eyebrow">History</span>
             <h4>Operational movement over time</h4>
@@ -294,7 +294,7 @@
         </div>
         <div class="drawer-chart-shell" id="drawerChartShell"></div>
         <div class="period-snapshot-grid" id="periodSnapshotGrid"></div>
-        <div class="reason-stack" id="drawerReasons"></div>
+        <div class="guide-list guide-list-inline" id="drawerReasons"></div>
       </div>
     </aside>
 

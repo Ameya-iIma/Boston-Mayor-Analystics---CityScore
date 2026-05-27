@@ -25,38 +25,39 @@ const state = {
 
 const elements = {
   loadingScreen: document.getElementById("loadingScreen"),
+  healthChip: document.getElementById("healthChip"),
+  asOfChip: document.getElementById("asOfChip"),
+  mastheadSubtitle: document.getElementById("mastheadSubtitle"),
   headlineStatus: document.getElementById("headlineStatus"),
   heroHeadline: document.getElementById("heroHeadline"),
   heroSupport: document.getElementById("heroSupport"),
   heroGuide: document.getElementById("heroGuide"),
+  heroMeta: document.getElementById("heroMeta"),
   heroSummary: document.getElementById("heroSummary"),
+  criticalAlerts: document.getElementById("criticalAlerts"),
+  recommendationsList: document.getElementById("recommendationsList"),
+  worstServicesList: document.getElementById("worstServicesList"),
+  bestServicesList: document.getElementById("bestServicesList"),
+  serviceAreaGrid: document.getElementById("serviceAreaGrid"),
+  departmentSummary: document.getElementById("departmentSummary"),
   portfolioHealthPanel: document.getElementById("portfolioHealthPanel"),
+  portfolioMix: document.getElementById("portfolioMix"),
   performanceBandsChart: document.getElementById("performanceBandsChart"),
   trendDistributionChart: document.getElementById("trendDistributionChart"),
-  dataScopeSummary: document.getElementById("dataScopeSummary"),
-  portfolioMix: document.getElementById("portfolioMix"),
-  bestServicesList: document.getElementById("bestServicesList"),
-  worstServicesList: document.getElementById("worstServicesList"),
-  compositeLeadersList: document.getElementById("compositeLeadersList"),
-  compositeLaggardsList: document.getElementById("compositeLaggardsList"),
-  rankedServicesChart: document.getElementById("rankedServicesChart"),
-  departmentSummary: document.getElementById("departmentSummary"),
-  recommendationsList: document.getElementById("recommendationsList"),
-  methodologyList: document.getElementById("methodologyList"),
   topCardGrid: document.getElementById("topCardGrid"),
   cityPeriodToggle: document.getElementById("cityPeriodToggle"),
   cityHistoryChart: document.getElementById("cityHistoryChart"),
   cityHistoryInsight: document.getElementById("cityHistoryInsight"),
-  criticalAlerts: document.getElementById("criticalAlerts"),
   freshnessSummary: document.getElementById("freshnessSummary"),
-  serviceAreaGrid: document.getElementById("serviceAreaGrid"),
+  compositeLeadersList: document.getElementById("compositeLeadersList"),
+  compositeLaggardsList: document.getElementById("compositeLaggardsList"),
+  rankedServicesChart: document.getElementById("rankedServicesChart"),
+  dataScopeSummary: document.getElementById("dataScopeSummary"),
+  methodologyList: document.getElementById("methodologyList"),
   severityFilters: document.getElementById("severityFilters"),
   serviceAreaFilters: document.getElementById("serviceAreaFilters"),
   metricList: document.getElementById("metricList"),
   metricSearchInput: document.getElementById("metricSearchInput"),
-  healthChip: document.getElementById("healthChip"),
-  asOfChip: document.getElementById("asOfChip"),
-  mastheadSubtitle: document.getElementById("mastheadSubtitle"),
   drawerBackdrop: document.getElementById("drawerBackdrop"),
   metricDrawer: document.getElementById("metricDrawer"),
   drawerServiceArea: document.getElementById("drawerServiceArea"),
@@ -69,12 +70,10 @@ const elements = {
   drawerReasons: document.getElementById("drawerReasons"),
 };
 
-
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
   loadDashboard();
 });
-
 
 function bindEvents() {
   document.addEventListener("click", handleDocumentClick);
@@ -89,7 +88,6 @@ function bindEvents() {
     renderMetricList();
   });
 }
-
 
 async function loadDashboard({ refresh = false } = {}) {
   toggleLoading(true);
@@ -115,7 +113,6 @@ async function loadDashboard({ refresh = false } = {}) {
     state.freshness = freshness;
     state.metrics = metrics;
     state.cityHistory = cityHistory;
-    state.cityFocusPeriod = state.cityFocusPeriod || "day";
 
     renderDashboard();
   } catch (error) {
@@ -125,7 +122,6 @@ async function loadDashboard({ refresh = false } = {}) {
     toggleLoading(false);
   }
 }
-
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
@@ -141,7 +137,7 @@ async function fetchJson(url, options = {}) {
       const payload = await response.json();
       detail = payload.detail || detail;
     } catch (error) {
-      // Ignore JSON parsing failures for non-JSON responses.
+      // ignore parse failures
     }
     throw new Error(detail);
   }
@@ -149,100 +145,370 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
-
 function renderDashboard() {
   renderHero();
-  renderPortfolioDiagnostics();
-  renderExecutiveScope();
-  renderExecutiveRankings();
-  renderCompositeRankings();
-  renderPortfolioDetails();
-  renderExecutiveStrategy();
-  renderTopCards();
-  renderCityHistory();
-  renderCriticalAlerts();
-  renderFreshness();
-  renderServiceAreas();
+  renderUrgentAlerts();
+  renderActionAgenda();
+  renderPressureMap();
+  renderPortfolioEvidence();
+  renderCityMovement();
+  renderBenchmarks();
+  renderRanking();
+  renderEvidencePack();
   renderFilterControls();
   renderMetricList();
 }
 
-
 function renderHero() {
   const brief = state.executiveBrief;
   const overview = state.overview;
-  const freshness = state.freshness;
-
   const status = brief?.headline_status || "mixed";
+  const scope = brief?.data_scope;
+
   elements.healthChip.textContent = `Portfolio ${titleCase(status)}`;
   elements.healthChip.className = `status-chip ${statusToneClass(status)}`;
   elements.asOfChip.textContent = `As of: ${formatDate(overview?.as_of_date)}`;
-  elements.mastheadSubtitle.textContent = brief
-    ? `Using ${brief.data_scope.services_ranked} ranked services across ${brief.data_scope.snapshot_dates} recent Full Metric List snapshots.`
-    : `Tracking ${freshness?.metrics_total ?? 0} metrics across ${state.serviceAreas.length} service areas.`;
-
   elements.headlineStatus.textContent = titleCase(status);
   elements.headlineStatus.className = `status-banner ${statusToneClass(status)}`;
-  elements.heroHeadline.textContent =
-    brief?.headline_text || "Preparing the state-of-city-services briefing.";
+  elements.heroHeadline.textContent = brief?.headline_text || "Preparing the state-of-city-services briefing.";
   elements.heroSupport.textContent =
-    brief?.supporting_text || overview?.note || "CityScore context unavailable.";
+    brief?.supporting_text || overview?.note || "Citywide context is not available yet.";
+
+  elements.mastheadSubtitle.textContent = brief
+    ? `${scope.services_ranked} ranked services across ${scope.snapshot_dates} recent Full Metric List snapshots.`
+    : "Loading citywide service diagnostics.";
 
   elements.heroGuide.innerHTML = (brief?.score_guide || [])
-    .map((item) => `<span class="reason-pill">${escapeHtml(item)}</span>`)
+    .map((item) => `<div class="guide-pill">${escapeHtml(item)}</div>`)
     .join("");
 
-  const heroCards = brief?.kpi_cards || [];
-  elements.heroSummary.innerHTML = heroCards
-    .map(
-      (item) => {
-        const value = String(item.value);
-        const animateAttr = /^-?\d+(\.\d+)?$/.test(value)
-          ? ` data-animate-number="${escapeHtml(value)}"`
-          : "";
-        return `
-        <article class="summary-tile">
+  elements.heroMeta.innerHTML = renderContextCards(scope, brief?.portfolio_health);
+
+  elements.heroSummary.innerHTML = (brief?.kpi_cards || [])
+    .map((item) => {
+      const numeric = String(item.value).replace(/[^0-9.-]/g, "");
+      const animateAttr = /^-?\d+(\.\d+)?$/.test(numeric) ? ` data-animate-number="${escapeHtml(numeric)}"` : "";
+      return `
+        <article class="summary-card">
           <span class="summary-label">${escapeHtml(item.label)}</span>
-          <strong class="summary-value"${animateAttr}>${escapeHtml(value)}</strong>
-          <span class="summary-foot">${escapeHtml(item.detail)}</span>
+          <strong${animateAttr}>${escapeHtml(item.value)}</strong>
+          <p class="summary-foot">${escapeHtml(item.detail)}</p>
         </article>
       `;
-      }
-    )
+    })
     .join("");
 
   animateNumericElements(elements.heroSummary.querySelectorAll("[data-animate-number]"));
 }
 
+function renderContextCards(scope, health) {
+  if (!scope) {
+    return `<div class="empty-state">Scope metadata is unavailable.</div>`;
+  }
 
-function renderPortfolioDiagnostics() {
+  const cards = [
+    {
+      label: "Source",
+      value: scope.source_focus,
+      foot: "Primary analytical dataset",
+    },
+    {
+      label: "Window",
+      value: `${formatDate(scope.analysis_start_date, { month: "short", day: "numeric" })} to ${formatDate(scope.analysis_end_date, { month: "short", day: "numeric" })}`,
+      foot: `${scope.snapshot_dates} snapshot dates`,
+    },
+    {
+      label: "Ranked",
+      value: `${scope.services_ranked}/${scope.services_in_scope}`,
+      foot: "Services with current scores",
+    },
+    {
+      label: "Health Score",
+      value: health ? `${Math.round(health.score)}` : "—",
+      foot: health ? `${titleCase(health.verdict)} on the 0-100 portfolio scale` : "Portfolio score unavailable",
+    },
+  ];
+
+  return cards
+    .map(
+      (item) => `
+        <article class="context-card">
+          <span class="mini-label">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+          <p class="summary-foot">${escapeHtml(item.foot)}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderUrgentAlerts() {
+  const alerts = state.overview?.critical_alerts || [];
+  if (!alerts.length) {
+    elements.criticalAlerts.innerHTML = `<div class="empty-state">No immediate exceptions are active right now.</div>`;
+    return;
+  }
+
+  elements.criticalAlerts.innerHTML = alerts
+    .map(
+      (alert) => `
+        <article class="alert-card ${escapeHtml(alert.severity)} is-clickable" data-open-metric="${escapeHtml(alert.metric_name)}">
+          <div class="alert-head">
+            <div>
+              <h4 class="alert-title">${escapeHtml(alert.display_name)}</h4>
+              <div class="alert-meta">
+                <span>${escapeHtml(alert.service_area)}</span>
+                <span>${escapeHtml(titleCase(alert.selected_period || "unknown"))}</span>
+                <span>${formatDate(alert.as_of_date, { month: "short", day: "numeric" })}</span>
+              </div>
+            </div>
+            ${renderSeverityPill(alert.severity)}
+          </div>
+          <div class="kpi-strip">
+            <div class="kpi-tile">
+              <span class="kpi-label">Current score</span>
+              <strong class="kpi-value">${formatScore(alert.current_score)}</strong>
+            </div>
+            <div class="kpi-tile">
+              <span class="kpi-label">Change</span>
+              <strong class="kpi-value">${formatSigned(alert.change_vs_previous)}</strong>
+            </div>
+          </div>
+          <div class="signal-summary">
+            ${(alert.alert_reasons || []).slice(0, 2).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("")}
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderActionAgenda() {
   const brief = state.executiveBrief;
   if (!brief) {
-    elements.portfolioHealthPanel.innerHTML = `<div class="empty-state">Portfolio diagnostics unavailable.</div>`;
-    elements.performanceBandsChart.innerHTML = `<div class="empty-state">Performance bands unavailable.</div>`;
-    elements.trendDistributionChart.innerHTML = `<div class="empty-state">Trend distribution unavailable.</div>`;
+    elements.recommendationsList.innerHTML = `<div class="empty-state">Recommendations are unavailable.</div>`;
+    elements.worstServicesList.innerHTML = `<div class="empty-state">Risk ranking is unavailable.</div>`;
+    elements.bestServicesList.innerHTML = `<div class="empty-state">Strength ranking is unavailable.</div>`;
+    return;
+  }
+
+  elements.recommendationsList.innerHTML = renderActionTiles(brief.recommendations, brief.worst_services);
+  elements.worstServicesList.innerHTML = renderRankingBars(brief.worst_services, "worst");
+  elements.bestServicesList.innerHTML = renderRankingBars(brief.best_services, "best");
+}
+
+function renderPressureMap() {
+  renderServiceAreas();
+  renderDepartmentSummary(state.executiveBrief?.department_summary || []);
+}
+
+function renderPortfolioEvidence() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.portfolioHealthPanel.innerHTML = `<div class="empty-state">Portfolio evidence is unavailable.</div>`;
+    elements.portfolioMix.innerHTML = `<div class="empty-state">Portfolio mix is unavailable.</div>`;
+    elements.performanceBandsChart.innerHTML = "";
+    elements.trendDistributionChart.innerHTML = "";
+    elements.topCardGrid.innerHTML = `<div class="empty-state">Current CityScore cards are unavailable.</div>`;
     return;
   }
 
   renderPortfolioHealthPanel(brief.portfolio_health);
+  renderPortfolioMix(brief.portfolio_mix);
   renderPerformanceBandsChart(brief.performance_bands);
   renderTrendDistributionChart(brief.trend_distribution);
+  renderTopCards();
 }
 
+function renderCityMovement() {
+  renderCityHistory();
+  renderFreshness();
+}
 
-function renderPortfolioHealthPanel(health) {
-  if (!health) {
-    elements.portfolioHealthPanel.innerHTML = `<div class="empty-state">Portfolio health score unavailable.</div>`;
+function renderBenchmarks() {
+  const brief = state.executiveBrief;
+  if (!brief) {
+    elements.compositeLeadersList.innerHTML = `<div class="empty-state">Composite benchmarks are unavailable.</div>`;
+    elements.compositeLaggardsList.innerHTML = `<div class="empty-state">Composite benchmarks are unavailable.</div>`;
     return;
   }
 
-  const scorePercent = Math.max(0, Math.min(health.score, 100));
+  elements.compositeLeadersList.innerHTML = renderRankingBars(brief.composite_leaders, "best", {
+    scoreLabel: "Composite score",
+    trendLabel: "Momentum",
+    scoreField: "composite_score",
+    trendField: "trend_delta_wq",
+    badgeField: "perf_band",
+  });
+  elements.compositeLaggardsList.innerHTML = renderRankingBars(brief.composite_laggards, "worst", {
+    scoreLabel: "Composite score",
+    trendLabel: "Momentum",
+    scoreField: "composite_score",
+    trendField: "trend_delta_wq",
+    badgeField: "perf_band",
+  });
+}
+
+function renderRanking() {
+  const items = state.executiveBrief?.ranked_service_table || [];
+  if (!items.length) {
+    elements.rankedServicesChart.innerHTML = `<div class="empty-state">Full service ranking is unavailable.</div>`;
+    return;
+  }
+
+  const sorted = [...items].sort((a, b) => Number(b.composite_score || -Infinity) - Number(a.composite_score || -Infinity));
+  const maxScore = Math.max(...sorted.map((item) => Number(item.composite_score || 0)), 1);
+
+  elements.rankedServicesChart.innerHTML = `
+    <div class="ranked-bars">
+      ${sorted
+        .map((item, index) => {
+          const width = Math.max(4, (Number(item.composite_score || 0) / maxScore) * 100);
+          return `
+            <article class="ranked-bar-row is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
+              <div class="ranked-bar-meta">
+                <div class="ranked-bar-title">
+                  <span class="rank-badge small">${index + 1}</span>
+                  <strong>${escapeHtml(item.display_name)}</strong>
+                </div>
+                <div class="alert-meta">
+                  <span>${escapeHtml(item.department || item.service_area)}</span>
+                  <span>${escapeHtml(item.trend_label || "Unknown")}</span>
+                  <span>${escapeHtml(item.perf_band || "Unknown")}</span>
+                </div>
+              </div>
+              <div class="ranked-bar-track">
+                <span class="ranked-bar-fill ${slugify(item.perf_band || "unknown")}" style="--target-width:${width}%"></span>
+              </div>
+              <div class="ranked-bar-stats">
+                <span>Composite ${formatScore(item.composite_score)}</span>
+                <span>Current ${formatScore(item.current_score)}</span>
+                <span>Momentum ${formatSigned(item.trend_delta_wq ?? item.recent_trend)}</span>
+                <span>Gap ${formatSigned(item.gap_to_target)}</span>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEvidencePack() {
+  renderDataScope();
+  renderMethodology();
+}
+
+function renderActionTiles(items, risks = []) {
+  if (!items?.length) {
+    return `<div class="empty-state">No leadership actions are available.</div>`;
+  }
+
+  return items
+    .map((item, index) => {
+      const matchedRisk = risks.find((risk) => item.action_title.toLowerCase().includes(risk.display_name.toLowerCase()));
+      const signalWidth = matchedRisk
+        ? Math.max(12, Math.min(100, Math.abs(Number(matchedRisk.gap_to_target || 0)) * 100))
+        : 40 + index * 12;
+
+      return `
+        <article class="action-tile">
+          <div class="alert-head">
+            <div>
+              <h4 class="alert-title">${escapeHtml(item.action_title)}</h4>
+              <div class="alert-meta">
+                <span>${escapeHtml(item.service_area)}</span>
+                <span>${escapeHtml(item.owner)}</span>
+              </div>
+            </div>
+            ${renderPriorityPill(item.priority)}
+          </div>
+          <div class="action-metrics">
+            <div class="action-stat">
+              <span class="kpi-label">Risk signal</span>
+              <strong>${matchedRisk ? formatScore(matchedRisk.current_score) : "—"}</strong>
+            </div>
+            <div class="action-stat">
+              <span class="kpi-label">Momentum</span>
+              <strong>${matchedRisk ? formatSigned(matchedRisk.recent_trend ?? matchedRisk.trend_delta_wq) : "—"}</strong>
+            </div>
+            <div class="action-stat">
+              <span class="kpi-label">Priority</span>
+              <strong>${escapeHtml(item.priority)}</strong>
+            </div>
+          </div>
+          <div class="action-track"><span style="--target-width:${signalWidth}%"></span></div>
+          <p class="strategy-copy">${escapeHtml(truncateText(item.recommendation, 120))}</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderRankingBars(items, mode, options = {}) {
+  if (!items?.length) {
+    return `<div class="empty-state">No services are available for this view.</div>`;
+  }
+
+  const {
+    scoreLabel = "Current score",
+    trendLabel = "Recent trend",
+    scoreField = "current_score",
+    trendField = "recent_trend",
+    badgeField = "classification",
+  } = options;
+
+  const maxScore = Math.max(...items.map((item) => Number(item[scoreField] || 0)), 1);
+  const maxRisk = Math.max(...items.map((item) => Math.abs(Number(item.gap_to_target || 0))), 0.5);
+
+  return items
+    .map(
+      (item, index) => `
+        <article class="ranking-bar-card ${mode} is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
+          <div class="ranking-bar-head">
+            <div class="ranking-bar-title">
+              <div class="rank-badge">${item.rank || index + 1}</div>
+              <div>
+                <h4 class="alert-title">${escapeHtml(item.display_name)}</h4>
+                <div class="alert-meta">
+                  <span>${escapeHtml(item.service_area)}</span>
+                  <span>${escapeHtml(titleCase(item.selected_period || "unknown"))}</span>
+                </div>
+              </div>
+            </div>
+            ${renderContextPill(item[badgeField], badgeField)}
+          </div>
+          <div class="ranking-bar-track ${mode}">
+            <span class="ranking-bar-fill ${mode}" style="--target-width:${
+              mode === "best"
+                ? Math.max(8, (Number(item[scoreField] || 0) / maxScore) * 100)
+                : Math.max(8, (Math.abs(Number(item.gap_to_target || 0)) / maxRisk) * 100)
+            }%"></span>
+          </div>
+          <div class="ranking-bar-stats">
+            <span><strong>${escapeHtml(scoreLabel)}:</strong> ${formatScore(item[scoreField])}</span>
+            <span><strong>${escapeHtml(trendLabel)}:</strong> ${formatSigned(item[trendField])}</span>
+            <span><strong>Gap:</strong> ${formatSigned(item.gap_to_target)}</span>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderPortfolioHealthPanel(health) {
+  if (!health) {
+    elements.portfolioHealthPanel.innerHTML = `<div class="empty-state">Portfolio health is unavailable.</div>`;
+    return;
+  }
+
+  const scorePercent = Math.max(0, Math.min(Number(health.score || 0), 100));
   elements.portfolioHealthPanel.innerHTML = `
     <div class="health-score-layout">
       <div class="health-gauge-shell">
         <div class="health-gauge" style="--score:${scorePercent}; --tone:${health.verdict_color};">
           <div class="health-gauge-core">
-            <strong>${escapeHtml(String(Math.round(health.score)))}</strong>
+            <strong>${Math.round(scorePercent)}</strong>
             <span>/ 100</span>
             <div class="health-gauge-verdict">${escapeHtml(titleCase(health.verdict))}</div>
           </div>
@@ -268,20 +534,53 @@ function renderPortfolioHealthPanel(health) {
           .join("")}
         <article class="health-component-card">
           <div class="health-component-head">
-            <span class="summary-label">Central Tendency</span>
+            <span class="summary-label">Central tendency</span>
             <strong class="health-component-score">${formatScore(health.median_score)}</strong>
           </div>
-          <p class="strategy-copy">Median service score with mean at ${formatScore(health.mean_score)} across ${health.total_services} rankable services.</p>
+          <p class="strategy-copy">Median service score, with mean at ${formatScore(health.mean_score)} across ${health.total_services} rankable services.</p>
         </article>
       </div>
     </div>
   `;
 }
 
+function renderPortfolioMix(mix) {
+  const entries = Object.entries(mix || {});
+  if (!entries.length) {
+    elements.portfolioMix.innerHTML = `<div class="empty-state">Portfolio mix is unavailable.</div>`;
+    return;
+  }
+
+  const total = entries.reduce((sum, [, count]) => sum + Number(count || 0), 0) || 1;
+  elements.portfolioMix.innerHTML = `
+    <div class="portfolio-mix-list">
+      ${entries
+        .map(([bucket, count]) => {
+          const share = (Number(count || 0) / total) * 100;
+          return `
+            <article class="mix-card">
+              <div class="mix-head">
+                <div>
+                  <strong>${escapeHtml(bucket)}</strong>
+                  <div class="alert-meta">
+                    <span>${formatPercent(share / 100)} of services</span>
+                    <span>${count} services</span>
+                  </div>
+                </div>
+                ${renderConsultingBucketPill(bucket)}
+              </div>
+              <div class="mix-bar"><span class="${slugify(bucket)}" style="--target-width:${share}%"></span></div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
 
 function renderPerformanceBandsChart(bands) {
   if (!bands?.length) {
-    elements.performanceBandsChart.innerHTML = `<div class="empty-state">Performance band data unavailable.</div>`;
+    elements.performanceBandsChart.innerHTML = `<div class="empty-state">Performance bands are unavailable.</div>`;
     return;
   }
 
@@ -292,8 +591,7 @@ function renderPerformanceBandsChart(bands) {
     .map((item) => {
       const ratio = Number(item.count) / total;
       const end = start + ratio;
-      const color = performanceBandColor(item.band);
-      const slice = `${color} ${start * 100}% ${end * 100}%`;
+      const slice = `${performanceBandColor(item.band)} ${start * 100}% ${end * 100}%`;
       start = end;
       return slice;
     })
@@ -301,12 +599,10 @@ function renderPerformanceBandsChart(bands) {
 
   elements.performanceBandsChart.innerHTML = `
     <div class="distribution-layout">
-      <div class="donut-shell">
-        <div class="distribution-donut" style="--distribution:${slices || 'rgba(13,83,14,0.12) 0% 100%'};">
-          <div class="distribution-donut-core">
-            <strong>${total}</strong>
-            <span>services</span>
-          </div>
+      <div class="distribution-donut" style="--distribution:${slices || "rgba(13,83,14,0.12) 0% 100%"};">
+        <div class="distribution-donut-core">
+          <strong>${total}</strong>
+          <span>services</span>
         </div>
       </div>
       <div class="distribution-legend">
@@ -332,10 +628,9 @@ function renderPerformanceBandsChart(bands) {
   `;
 }
 
-
 function renderTrendDistributionChart(items) {
   if (!items?.length) {
-    elements.trendDistributionChart.innerHTML = `<div class="empty-state">Trend distribution unavailable.</div>`;
+    elements.trendDistributionChart.innerHTML = `<div class="empty-state">Trend distribution is unavailable.</div>`;
     return;
   }
 
@@ -362,199 +657,38 @@ function renderTrendDistributionChart(items) {
   `;
 }
 
-
-function renderExecutiveScope() {
-  const brief = state.executiveBrief;
-  if (!brief) {
-    elements.dataScopeSummary.innerHTML = `<div class="empty-state">Executive scope is unavailable.</div>`;
-    elements.portfolioMix.innerHTML = `<div class="empty-state">Portfolio mix is unavailable.</div>`;
-    return;
-  }
-
-  const scope = brief.data_scope;
-  const scopeStats = [
-    { label: "Source Focus", value: scope.source_focus, foot: "Primary analytical dataset" },
-    {
-      label: "Data Period",
-      value: `${formatDate(scope.analysis_start_date, { month: "short", day: "numeric" })} to ${formatDate(scope.analysis_end_date, { month: "short", day: "numeric" })}`,
-      foot: `${scope.snapshot_dates} snapshot dates in the Full Metric List`,
-    },
-    {
-      label: "Services Ranked",
-      value: `${scope.services_ranked}/${scope.services_in_scope}`,
-      foot: "Services with a current score suitable for ranking",
-    },
-    {
-      label: "Download Date",
-      value: formatDate(scope.download_date),
-      foot: "Documented because CityScore feeds can update over time",
-    },
-  ];
-
-  elements.dataScopeSummary.innerHTML = `
-    <div class="scope-grid">
-      ${scopeStats
-        .map(
-          (item) => `
-            <article class="scope-card">
-              <span class="summary-label">${escapeHtml(item.label)}</span>
-              <strong class="scope-value">${escapeHtml(item.value)}</strong>
-              <span class="summary-foot">${escapeHtml(item.foot)}</span>
-            </article>
-          `
-        )
-        .join("")}
-    </div>
-    <p class="scope-note">${escapeHtml(scope.reading_note)}</p>
-  `;
-
-  const total = Object.values(brief.portfolio_mix || {}).reduce((sum, value) => sum + Number(value || 0), 0) || 1;
-  elements.portfolioMix.innerHTML = `
-    <div class="portfolio-mix-list">
-      ${Object.entries(brief.portfolio_mix || {})
-        .map(([bucket, count]) => {
-          const share = (Number(count || 0) / total) * 100;
-          return `
-            <article class="mix-card">
-              <div class="mix-head">
-                <div>
-                  <strong>${escapeHtml(bucket)}</strong>
-                  <span>${formatPercent(share / 100)} of services</span>
-                </div>
-                ${renderConsultingBucketPill(bucket)}
-              </div>
-              <div class="mix-value">${escapeHtml(String(count))}</div>
-              <div class="mix-bar"><span style="width:${share}%"></span></div>
-            </article>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-
-function renderExecutiveRankings() {
-  const brief = state.executiveBrief;
-  if (!brief) {
-    elements.bestServicesList.innerHTML = `<div class="empty-state">Best-service ranking unavailable.</div>`;
-    elements.worstServicesList.innerHTML = `<div class="empty-state">Worst-service ranking unavailable.</div>`;
-    return;
-  }
-
-  elements.bestServicesList.innerHTML = renderRankedServiceCards(brief.best_services, "best");
-  elements.worstServicesList.innerHTML = renderRankedServiceCards(brief.worst_services, "worst");
-}
-
-
-function renderCompositeRankings() {
-  const brief = state.executiveBrief;
-  if (!brief) {
-    elements.compositeLeadersList.innerHTML = `<div class="empty-state">Operational standouts unavailable.</div>`;
-    elements.compositeLaggardsList.innerHTML = `<div class="empty-state">Pressure-point ranking unavailable.</div>`;
-    return;
-  }
-
-  elements.compositeLeadersList.innerHTML = renderRankedServiceCards(brief.composite_leaders, "best", {
-    scoreLabel: "Portfolio score",
-    trendLabel: "Momentum",
-    scoreField: "composite_score",
-    trendField: "trend_delta_wq",
-    badgeField: "perf_band",
-  });
-  elements.compositeLaggardsList.innerHTML = renderRankedServiceCards(brief.composite_laggards, "worst", {
-    scoreLabel: "Portfolio score",
-    trendLabel: "Momentum",
-    scoreField: "composite_score",
-    trendField: "trend_delta_wq",
-    badgeField: "perf_band",
-  });
-}
-
-
-function renderPortfolioDetails() {
-  const brief = state.executiveBrief;
-  if (!brief) {
-    elements.rankedServicesChart.innerHTML = `<div class="empty-state">Ranked service chart unavailable.</div>`;
-    elements.departmentSummary.innerHTML = `<div class="empty-state">Department summary unavailable.</div>`;
-    return;
-  }
-
-  renderRankedServicesChart(brief.ranked_service_table);
-  renderDepartmentSummary(brief.department_summary);
-}
-
-
-function renderExecutiveStrategy() {
-  const brief = state.executiveBrief;
-  if (!brief) {
-    elements.recommendationsList.innerHTML = `<div class="empty-state">Recommendations unavailable.</div>`;
-    elements.methodologyList.innerHTML = `<div class="empty-state">Methodology unavailable.</div>`;
-    return;
-  }
-
-  elements.recommendationsList.innerHTML = (brief.recommendations || [])
-    .map(
-      (item) => `
-        <article class="strategy-card">
-          <div class="alert-head">
-            <div>
-              <h4 class="alert-title">${escapeHtml(item.action_title)}</h4>
-              <div class="alert-meta">
-                <span>${escapeHtml(item.service_area)}</span>
-                <span>${escapeHtml(item.owner)}</span>
-              </div>
-            </div>
-            <span class="priority-pill ${slugify(item.priority)}">${escapeHtml(item.priority)}</span>
-          </div>
-          <p class="strategy-copy"><strong>Why:</strong> ${escapeHtml(item.evidence)}</p>
-          <p class="strategy-copy"><strong>Action:</strong> ${escapeHtml(item.recommendation)}</p>
-          <p class="strategy-copy"><strong>Next step:</strong> ${escapeHtml(item.next_step)}</p>
-        </article>
-      `
-    )
-    .join("");
-
-  elements.methodologyList.innerHTML = (brief.methodology || [])
-    .map(
-      (item) => `
-        <article class="method-card">
-          <h4 class="alert-title">${escapeHtml(item.title)}</h4>
-          <p class="strategy-copy">${escapeHtml(item.description)}</p>
-        </article>
-      `
-    )
-    .join("");
-}
-
-
 function renderTopCards() {
   const cards = state.overview?.top_cards || [];
+  if (!cards.length) {
+    elements.topCardGrid.innerHTML = `<div class="empty-state">Current CityScore cards are unavailable.</div>`;
+    return;
+  }
+
   elements.topCardGrid.innerHTML = cards
     .map((card) => {
-      const points = getCityHistoryForPeriod(card.period_type).slice(-24);
-      const deltaClass = (card.change ?? 0) >= 0 ? "up" : "down";
+      const points = getCityHistoryForPeriod(card.period_type).slice(-18);
+      const deltaClass = Number(card.change || 0) >= 0 ? "up" : "down";
       return `
         <article class="top-card">
-          <div class="top-card-label">
-            <span class="period-name">${escapeHtml(titleCase(card.period_type))}</span>
+          <div class="top-card-head">
+            <div>
+              <span class="period-name">${escapeHtml(titleCase(card.period_type))}</span>
+            </div>
             ${renderSeverityPill(card.status)}
           </div>
           <div class="score-line">
             <strong class="score-value" data-animate-number="${formatScore(card.score)}">${formatScore(card.score)}</strong>
-            <span class="delta-chip ${deltaClass}">
-              ${formatSigned(card.change)}
-            </span>
+            <span class="delta-chip ${deltaClass}">${formatSigned(card.change)}</span>
           </div>
           <div class="sparkline-shell">
             ${renderSparkline(points.map((point) => point.score), {
-              width: 360,
-              height: 88,
+              width: 320,
+              height: 84,
               stroke: severityColor(card.status),
             })}
           </div>
           <div class="sparkline-caption">
-            <span>Previous: ${formatScore(card.previous_score)}</span>
+            <span>Previous ${formatScore(card.previous_score)}</span>
             <span>${points.length} points</span>
           </div>
         </article>
@@ -565,28 +699,28 @@ function renderTopCards() {
   animateNumericElements(elements.topCardGrid.querySelectorAll("[data-animate-number]"));
 }
 
-
 function renderCityHistory() {
-  const periodButtons = PERIODS.map(
+  elements.cityPeriodToggle.innerHTML = PERIODS.map(
     (period) => `
-      <button
-        type="button"
-        class="chip-button ${state.cityFocusPeriod === period ? "is-active" : ""}"
-        data-city-period="${period}"
-      >
+      <button type="button" class="chip-button ${state.cityFocusPeriod === period ? "is-active" : ""}" data-city-period="${period}">
         ${escapeHtml(titleCase(period))}
       </button>
     `
   ).join("");
 
-  elements.cityPeriodToggle.innerHTML = periodButtons;
-
   const points = getCityHistoryForPeriod(state.cityFocusPeriod);
+  if (!points.length) {
+    elements.cityHistoryChart.innerHTML = `<div class="chart-placeholder">City trajectory is unavailable for this period.</div>`;
+    elements.cityHistoryInsight.innerHTML = "";
+    return;
+  }
+
   const latestPoint = points[points.length - 1];
   const previousPoint = points[points.length - 2];
+
   elements.cityHistoryChart.innerHTML = renderLargeChart({
     title: `${titleCase(state.cityFocusPeriod)} CityScore`,
-    subtitle: `${points.length} observations in view`,
+    subtitle: `${points.length} observations in the current view`,
     values: points.map((point) => point.score),
     dates: points.map((point) => formatDate(point.as_of_date, { month: "short", day: "numeric" })),
     targetValue: 1,
@@ -595,71 +729,28 @@ function renderCityHistory() {
 
   elements.cityHistoryInsight.innerHTML = `
     <div class="insight-stat">
-      <span class="insight-label">Current score</span>
+      <span class="kpi-label">Current score</span>
       <strong class="insight-value">${formatScore(latestPoint?.score)}</strong>
     </div>
     <div class="insight-stat">
-      <span class="insight-label">Change from previous</span>
+      <span class="kpi-label">Change from previous</span>
       <strong class="insight-value">${formatSigned(latestPoint?.change)}</strong>
     </div>
     <div class="insight-stat">
-      <span class="insight-label">Previous reading</span>
+      <span class="kpi-label">Previous reading</span>
       <strong class="insight-value">${formatScore(previousPoint?.score)}</strong>
     </div>
     <div class="insight-stat">
-      <span class="insight-label">Decision threshold</span>
+      <span class="kpi-label">Decision threshold</span>
       <strong class="insight-value">1.00</strong>
     </div>
   `;
 }
 
-
-function renderCriticalAlerts() {
-  const alerts = state.overview?.critical_alerts || [];
-  if (!alerts.length) {
-    elements.criticalAlerts.innerHTML = `<div class="empty-state">No priority alerts right now.</div>`;
-    return;
-  }
-
-  elements.criticalAlerts.innerHTML = alerts
-    .map(
-      (alert) => `
-        <article class="alert-card is-clickable" data-open-metric="${escapeHtml(alert.metric_name)}">
-          <div class="alert-head">
-            <div>
-              <h4 class="alert-title">${escapeHtml(alert.display_name)}</h4>
-              <div class="alert-meta">
-                <span>${escapeHtml(alert.service_area)}</span>
-                <span>${escapeHtml(titleCase(alert.selected_period || "unknown"))}</span>
-                <span>${formatDate(alert.as_of_date)}</span>
-              </div>
-            </div>
-            ${renderSeverityPill(alert.severity)}
-          </div>
-          <div class="kpi-strip">
-            <div class="kpi-tile">
-              <span class="kpi-label">Current score</span>
-              <strong class="kpi-value">${formatScore(alert.current_score)}</strong>
-            </div>
-            <div class="kpi-tile">
-              <span class="kpi-label">Change</span>
-              <strong class="kpi-value">${formatSigned(alert.change_vs_previous)}</strong>
-            </div>
-          </div>
-          <div class="alert-reasons">
-            ${alert.alert_reasons.map((reason) => `<span class="reason-pill">${escapeHtml(reason)}</span>`).join("")}
-          </div>
-        </article>
-      `
-    )
-    .join("");
-}
-
-
 function renderFreshness() {
   const freshness = state.freshness;
   if (!freshness) {
-    elements.freshnessSummary.innerHTML = `<div class="empty-state">Freshness data unavailable.</div>`;
+    elements.freshnessSummary.innerHTML = `<div class="empty-state">Reporting coverage is unavailable.</div>`;
     return;
   }
 
@@ -670,25 +761,25 @@ function renderFreshness() {
         <strong class="kpi-value">${freshness.metrics_total}</strong>
       </div>
       <div class="kpi-tile">
-        <span class="kpi-label">Missing day scores</span>
-        <strong class="kpi-value">${freshness.metrics_missing_day_score}</strong>
-      </div>
-      <div class="kpi-tile">
         <span class="kpi-label">Selected scores ready</span>
         <strong class="kpi-value">${freshness.metrics_with_selected_score}</strong>
+      </div>
+      <div class="kpi-tile">
+        <span class="kpi-label">Missing day scores</span>
+        <strong class="kpi-value">${freshness.metrics_missing_day_score}</strong>
       </div>
       <div class="kpi-tile">
         <span class="kpi-label">Stale metrics</span>
         <strong class="kpi-value">${freshness.stale_metrics}</strong>
       </div>
     </div>
-    <div class="alert-reasons" style="margin-top: 1rem;">
+    <div class="guide-list guide-list-inline" style="margin-top:1rem;">
       ${freshness.coverage_by_service_area
         .map(
           (item) => `
-            <span class="reason-pill">
-              ${escapeHtml(item.service_area)}: ${item.metrics_with_selected_score}/${item.total_metrics}
-            </span>
+            <div class="guide-pill">
+              ${escapeHtml(item.service_area)} · ${item.metrics_with_selected_score}/${item.total_metrics} with current selected scores
+            </div>
           `
         )
         .join("")}
@@ -696,47 +787,45 @@ function renderFreshness() {
   `;
 }
 
-
 function renderServiceAreas() {
   if (!state.serviceAreas.length) {
-    elements.serviceAreaGrid.innerHTML = `<div class="empty-state">No service area summaries available.</div>`;
+    elements.serviceAreaGrid.innerHTML = `<div class="empty-state">Service-area coverage is unavailable.</div>`;
     return;
   }
 
   elements.serviceAreaGrid.innerHTML = state.serviceAreas
     .map((serviceArea) => {
       const total = serviceArea.metric_count || 1;
-      const segments = [
-        { key: "red", count: serviceArea.red_count },
-        { key: "amber", count: serviceArea.amber_count },
-        { key: "blue", count: serviceArea.blue_count },
-        { key: "green", count: serviceArea.green_count },
-      ];
-
+      const score = Number(serviceArea.selected_score_average || 0);
+      const tone = serviceArea.red_count > 0 ? "risk" : score >= 1 ? "steady" : "watch";
       return `
-        <article class="service-card is-clickable" data-filter-service-area="${escapeHtml(serviceArea.service_area)}">
-          <div>
-            <h4>${escapeHtml(serviceArea.service_area)}</h4>
-            <div class="mini-meta">
-              <span>${serviceArea.metric_count} metrics</span>
-              <span>${serviceArea.red_count + serviceArea.amber_count} active concerns</span>
+        <article class="service-card ${tone} is-clickable" data-filter-service-area="${escapeHtml(serviceArea.service_area)}">
+          <div class="service-card-head">
+            <div>
+              <h4 class="alert-title">${escapeHtml(serviceArea.service_area)}</h4>
+              <div class="mini-meta">
+                <span>${serviceArea.metric_count} metrics</span>
+                <span>${serviceArea.red_count + serviceArea.amber_count} active concerns</span>
+              </div>
             </div>
+            <div class="service-score">${formatScore(serviceArea.selected_score_average)}</div>
           </div>
-          <div class="service-score">${formatScore(serviceArea.selected_score_average)}</div>
           <div class="stacked-bar">
-            ${segments
-              .map(
-                (segment) => `
-                  <span class="${segment.key}" style="width:${(segment.count / total) * 100}%"></span>
-                `
-              )
-              .join("")}
+            <span class="red" style="width:${(serviceArea.red_count / total) * 100}%"></span>
+            <span class="amber" style="width:${(serviceArea.amber_count / total) * 100}%"></span>
+            <span class="blue" style="width:${(serviceArea.blue_count / total) * 100}%"></span>
+            <span class="green" style="width:${(serviceArea.green_count / total) * 100}%"></span>
           </div>
-          <div class="service-legend">
+          <div class="mini-meta">
             <span>Red ${serviceArea.red_count}</span>
             <span>Amber ${serviceArea.amber_count}</span>
             <span>Blue ${serviceArea.blue_count}</span>
             <span>Green ${serviceArea.green_count}</span>
+          </div>
+          <div class="micro-bars">
+            <span class="micro-bar red" style="--target-width:${(serviceArea.red_count / total) * 100}%"></span>
+            <span class="micro-bar amber" style="--target-width:${(serviceArea.amber_count / total) * 100}%"></span>
+            <span class="micro-bar green" style="--target-width:${(serviceArea.green_count / total) * 100}%"></span>
           </div>
         </article>
       `;
@@ -744,17 +833,107 @@ function renderServiceAreas() {
     .join("");
 }
 
+function renderDepartmentSummary(items) {
+  if (!items?.length) {
+    elements.departmentSummary.innerHTML = `<div class="empty-state">Department view is unavailable.</div>`;
+    return;
+  }
+
+  const sorted = [...items].sort(
+    (a, b) => Number(b.priority_intervention_count || 0) - Number(a.priority_intervention_count || 0)
+  );
+
+  elements.departmentSummary.innerHTML = sorted
+    .map(
+      (item) => `
+        <article class="department-card">
+          <div class="alert-head">
+            <div>
+              <h4 class="alert-title">${escapeHtml(item.department)}</h4>
+              <div class="alert-meta">
+                <span>${item.metric_count} metrics</span>
+                <span>${item.priority_intervention_count} priority interventions</span>
+                <span>${item.below_target_count} below target</span>
+              </div>
+            </div>
+            <strong class="department-score">${formatScore(item.composite_score_average)}</strong>
+          </div>
+          <div class="animated-bar">
+            <span class="${item.priority_intervention_count > 0 ? "priority-intervention" : "leading"}" style="--target-width:${Math.max(4, (Number(item.priority_intervention_count || 0) / Math.max(item.metric_count || 1, 1)) * 100)}%"></span>
+          </div>
+          <div class="department-metrics">
+            <span>${item.at_or_above_target_count} above target</span>
+            <span>${item.below_target_count} below target</span>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderDataScope() {
+  const scope = state.executiveBrief?.data_scope;
+  if (!scope) {
+    elements.dataScopeSummary.innerHTML = `<div class="empty-state">Scope and timing metadata are unavailable.</div>`;
+    return;
+  }
+
+  const stats = [
+    ["Source focus", scope.source_focus, "Primary analytical dataset"],
+    [
+      "Analysis period",
+      `${formatDate(scope.analysis_start_date, { month: "short", day: "numeric" })} to ${formatDate(scope.analysis_end_date, { month: "short", day: "numeric" })}`,
+      `${scope.snapshot_dates} recent snapshots`,
+    ],
+    ["Services ranked", `${scope.services_ranked}/${scope.services_in_scope}`, "Current scores suitable for ranking"],
+    ["Download date", formatDate(scope.download_date), "Documented because CityScore updates over time"],
+  ];
+
+  elements.dataScopeSummary.innerHTML = `
+    <div class="scope-grid">
+      ${stats
+        .map(
+          ([label, value, foot]) => `
+            <article class="scope-card">
+              <span class="scope-label">${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+              <p class="summary-foot">${escapeHtml(foot)}</p>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+    <p class="scope-note strategy-copy">${escapeHtml(scope.reading_note)}</p>
+  `;
+}
+
+function renderMethodology() {
+  const items = state.executiveBrief?.methodology || [];
+  if (!items.length) {
+    elements.methodologyList.innerHTML = `<div class="empty-state">Methodology is unavailable.</div>`;
+    return;
+  }
+
+  elements.methodologyList.innerHTML = items
+    .slice(0, 4)
+    .map(
+      (item, index) => `
+        <article class="method-card">
+          <div class="method-index">${index + 1}</div>
+          <h4 class="alert-title">${escapeHtml(item.title)}</h4>
+          <p class="strategy-copy">${escapeHtml(truncateText(item.description, 120))}</p>
+        </article>
+      `
+    )
+    .join("");
+}
 
 function renderFilterControls() {
   const severityOptions = ["all", "red", "amber", "blue", "green"];
   elements.severityFilters.innerHTML = severityOptions
     .map(
       (severity) => `
-        <button
-          type="button"
-          class="chip-button ${state.filters.severity === severity ? "is-active" : ""}"
-          data-filter-severity="${severity}"
-        >
+        <button type="button" class="chip-button ${state.filters.severity === severity ? "is-active" : ""}" data-filter-severity="${severity}">
           ${escapeHtml(titleCase(severity))}
         </button>
       `
@@ -765,23 +944,17 @@ function renderFilterControls() {
   elements.serviceAreaFilters.innerHTML = serviceOptions
     .map(
       (serviceArea) => `
-        <button
-          type="button"
-          class="chip-button ${state.filters.serviceArea === serviceArea ? "is-active" : ""}"
-          data-filter-service-area="${escapeHtml(serviceArea)}"
-        >
-          ${escapeHtml(serviceArea === "all" ? "All Areas" : serviceArea)}
+        <button type="button" class="chip-button ${state.filters.serviceArea === serviceArea ? "is-active" : ""}" data-filter-service-area="${escapeHtml(serviceArea)}">
+          ${escapeHtml(serviceArea === "all" ? "All areas" : serviceArea)}
         </button>
       `
     )
     .join("");
 }
 
-
 function renderMetricList() {
-  const filteredMetrics = state.metrics.filter((metric) => {
-    const matchesSeverity =
-      state.filters.severity === "all" || metric.severity === state.filters.severity;
+  const metrics = state.metrics.filter((metric) => {
+    const matchesSeverity = state.filters.severity === "all" || metric.severity === state.filters.severity;
     const matchesServiceArea =
       state.filters.serviceArea === "all" || metric.service_area === state.filters.serviceArea;
     const query = state.filters.query;
@@ -789,38 +962,39 @@ function renderMetricList() {
       !query ||
       metric.metric_name.toLowerCase().includes(query) ||
       metric.display_name.toLowerCase().includes(query) ||
-      metric.service_area.toLowerCase().includes(query);
+      metric.service_area.toLowerCase().includes(query) ||
+      (metric.department || "").toLowerCase().includes(query);
     return matchesSeverity && matchesServiceArea && matchesQuery;
   });
 
-  if (!filteredMetrics.length) {
-    elements.metricList.innerHTML = `<div class="empty-state">No metrics match the current filters.</div>`;
+  if (!metrics.length) {
+    elements.metricList.innerHTML = `<div class="empty-state">No services match the current filters.</div>`;
     return;
   }
 
-  elements.metricList.innerHTML = filteredMetrics
+  elements.metricList.innerHTML = metrics
     .map(
       (metric) => `
         <article class="metric-row is-clickable" data-open-metric="${escapeHtml(metric.metric_name)}">
           <div class="metric-name-cell">
             <strong>${escapeHtml(metric.display_name)}</strong>
-            <span>${escapeHtml(metric.department || metric.service_area)} · ${escapeHtml(metric.owner_department)} · ${escapeHtml(metric.consulting_bucket || "Unclassified")} · ${escapeHtml(metric.perf_band || "Unknown")}</span>
+            <span>${escapeHtml(metric.department || metric.service_area)} · ${escapeHtml(metric.owner_department)} · ${escapeHtml(metric.consulting_bucket || "Unclassified")}</span>
           </div>
           <div class="metric-period">${escapeHtml(titleCase(metric.selected_period || "n/a"))}</div>
           <div class="metric-value">${formatScore(metric.current_score)}</div>
           <div class="metric-change">${formatSigned(metric.change_vs_previous)}</div>
-          <div class="metric-severity">${renderSeverityPill(metric.severity)}</div>
+          <div>${renderSeverityPill(metric.severity)}</div>
         </article>
       `
     )
     .join("");
 }
 
-
 async function openMetricDrawer(metricName) {
   state.drawer.metricName = metricName;
   state.drawer.detail = null;
   state.drawer.history = [];
+
   renderDrawerLoading(metricName);
   document.body.classList.add("drawer-open");
   elements.drawerBackdrop.classList.add("is-open");
@@ -833,7 +1007,6 @@ async function openMetricDrawer(metricName) {
     const history = await fetchJson(
       `${API_BASE}/metrics/${encodeURIComponent(metricName)}/history?period_type=${period}&days=180`
     );
-
     state.drawer.detail = detail;
     state.drawer.period = period;
     state.drawer.history = history;
@@ -844,14 +1017,13 @@ async function openMetricDrawer(metricName) {
   }
 }
 
-
 async function changeDrawerPeriod(period) {
   if (!state.drawer.metricName) {
     return;
   }
+
   state.drawer.period = period;
   elements.drawerChartShell.innerHTML = `<div class="chart-placeholder">Loading ${titleCase(period)} trend...</div>`;
-
   try {
     state.drawer.history = await fetchJson(
       `${API_BASE}/metrics/${encodeURIComponent(state.drawer.metricName)}/history?period_type=${period}&days=180`
@@ -863,18 +1035,16 @@ async function changeDrawerPeriod(period) {
   }
 }
 
-
 function renderDrawerLoading(metricName) {
   elements.drawerServiceArea.textContent = "Loading metric";
   elements.drawerTitle.textContent = metricName;
-  elements.drawerDefinition.textContent = "Pulling historical movement and the latest alert context.";
+  elements.drawerDefinition.textContent = "Pulling historical movement and the latest context.";
   elements.drawerStatStrip.innerHTML = "";
   elements.drawerPeriodToggle.innerHTML = "";
   elements.drawerChartShell.innerHTML = `<div class="chart-placeholder">Loading metric drill-down...</div>`;
   elements.periodSnapshotGrid.innerHTML = "";
   elements.drawerReasons.innerHTML = "";
 }
-
 
 function renderDrawer() {
   const detail = state.drawer.detail;
@@ -884,43 +1054,23 @@ function renderDrawer() {
 
   elements.drawerServiceArea.textContent = detail.service_area;
   elements.drawerTitle.textContent = detail.display_name;
-  elements.drawerDefinition.textContent = `${detail.definition} ${detail.department ? `Grouped in ${detail.department}.` : ""}`;
+  elements.drawerDefinition.textContent = detail.definition;
 
-  elements.drawerStatStrip.innerHTML = [
-    {
-      label: "Current score",
-      value: formatScore(detail.current_score),
-    },
-    {
-      label: "Change",
-      value: formatSigned(detail.change_vs_previous),
-    },
-    {
-      label: "Rolling 14",
-      value: formatScore(detail.rolling_mean_14),
-    },
-    {
-      label: "Target",
-      value: formatScore(detail.target),
-    },
-    {
-      label: "Recent trend",
-      value: formatSigned(detail.recent_trend),
-    },
-    {
-      label: "Portfolio score",
-      value: formatScore(detail.composite_score),
-    },
-    {
-      label: "Perf band",
-      value: detail.perf_band || "—",
-    },
-  ]
+  const stats = [
+    ["Current score", formatScore(detail.current_score)],
+    ["Change", formatSigned(detail.change_vs_previous)],
+    ["Rolling 14", formatScore(detail.rolling_mean_14)],
+    ["Target", formatScore(detail.target)],
+    ["Recent trend", formatSigned(detail.recent_trend)],
+    ["Composite", formatScore(detail.composite_score)],
+  ];
+
+  elements.drawerStatStrip.innerHTML = stats
     .map(
-      (item) => `
+      ([label, value]) => `
         <article class="drawer-stat-tile">
-          <span class="stat-label">${escapeHtml(item.label)}</span>
-          <strong class="stat-value">${escapeHtml(item.value)}</strong>
+          <span class="kpi-label">${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
         </article>
       `
     )
@@ -928,11 +1078,7 @@ function renderDrawer() {
 
   elements.drawerPeriodToggle.innerHTML = PERIODS.map(
     (period) => `
-      <button
-        type="button"
-        class="chip-button ${state.drawer.period === period ? "is-active" : ""}"
-        data-drawer-period="${period}"
-      >
+      <button type="button" class="chip-button ${state.drawer.period === period ? "is-active" : ""}" data-drawer-period="${period}">
         ${escapeHtml(titleCase(period))}
       </button>
     `
@@ -940,18 +1086,18 @@ function renderDrawer() {
 
   elements.drawerChartShell.innerHTML = renderLargeChart({
     title: `${detail.display_name} · ${titleCase(state.drawer.period)}`,
-    subtitle: `${state.drawer.history.length} points over the recent window`,
+    subtitle: `${state.drawer.history.length} observations in the selected window`,
     values: state.drawer.history.map((point) => point.score),
     dates: state.drawer.history.map((point) => formatDate(point.as_of_date, { month: "short", day: "numeric" })),
     targetValue: detail.target ?? 1,
     lineColor: severityColor(detail.severity),
   });
 
-  elements.periodSnapshotGrid.innerHTML = detail.period_snapshots
+  elements.periodSnapshotGrid.innerHTML = (detail.period_snapshots || [])
     .map(
       (snapshot) => `
         <article class="period-card">
-          <span class="period-card-label">${escapeHtml(titleCase(snapshot.period_type))}</span>
+          <span class="kpi-label">${escapeHtml(titleCase(snapshot.period_type))}</span>
           <div class="period-card-value">${formatScore(snapshot.score)}</div>
           <div class="mini-meta">
             <span>Primary ${formatScore(snapshot.primary_value)}</span>
@@ -962,14 +1108,16 @@ function renderDrawer() {
     )
     .join("");
 
-  elements.drawerReasons.innerHTML = [
-    detail.consulting_bucket ? renderConsultingBucketPill(detail.consulting_bucket) : "",
-    detail.perf_band ? renderPerformanceBandPill(detail.perf_band) : "",
-    ...(detail.alert_reasons || []).map((reason) => `<span class="reason-pill">${escapeHtml(reason)}</span>`),
-  ]
-    .join("");
+  const reasons = [];
+  if (detail.consulting_bucket) {
+    reasons.push(renderConsultingBucketPill(detail.consulting_bucket));
+  }
+  if (detail.perf_band) {
+    reasons.push(renderPerformanceBandPill(detail.perf_band));
+  }
+  reasons.push(...(detail.alert_reasons || []).map((reason) => `<div class="guide-pill">${escapeHtml(reason)}</div>`));
+  elements.drawerReasons.innerHTML = reasons.join("");
 }
-
 
 function closeDrawer() {
   document.body.classList.remove("drawer-open");
@@ -978,10 +1126,8 @@ function closeDrawer() {
   elements.metricDrawer.setAttribute("aria-hidden", "true");
 }
 
-
 function handleDocumentClick(event) {
-  const refreshButton = event.target.closest('[data-action="refresh"]');
-  if (refreshButton) {
+  if (event.target.closest('[data-action="refresh"]')) {
     loadDashboard({ refresh: true });
     return;
   }
@@ -1021,155 +1167,32 @@ function handleDocumentClick(event) {
     return;
   }
 
-  if (
-    event.target.closest('[data-action="close-drawer"]') ||
-    event.target === elements.drawerBackdrop
-  ) {
+  if (event.target.closest('[data-action="close-drawer"]') || event.target === elements.drawerBackdrop) {
     closeDrawer();
   }
 }
-
 
 function toggleLoading(isLoading) {
   elements.loadingScreen.classList.toggle("is-hidden", !isLoading);
 }
 
-
 function renderLoadError(error) {
   elements.healthChip.textContent = "Data unavailable";
-  elements.heroHeadline.textContent = "Dashboard load failed.";
+  elements.healthChip.className = "status-chip concerning";
+  elements.asOfChip.textContent = "As of: --";
+  elements.headlineStatus.textContent = "Unavailable";
+  elements.headlineStatus.className = "status-banner concerning";
+  elements.heroHeadline.textContent = "The mayor's briefing could not be loaded.";
   elements.heroSupport.textContent = error.message;
-  elements.topCardGrid.innerHTML = `<div class="empty-state">Unable to render top cards.</div>`;
+  elements.heroGuide.innerHTML = "";
+  elements.heroMeta.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  elements.heroSummary.innerHTML = `<div class="empty-state">Executive KPI cards are unavailable.</div>`;
+  elements.criticalAlerts.innerHTML = `<div class="empty-state">Unable to render current exceptions.</div>`;
 }
-
-
-function renderRankedServiceCards(items, mode, options = {}) {
-  if (!items?.length) {
-    return `<div class="empty-state">No ranked services available.</div>`;
-  }
-
-  const {
-    scoreLabel = "Current score",
-    trendLabel = "Recent trend",
-    scoreField = "current_score",
-    trendField = "recent_trend",
-    badgeField = "classification",
-  } = options;
-
-  return items
-    .map(
-      (item, index) => `
-        <article class="ranking-card ${mode} is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
-          <div class="alert-head">
-            <div>
-              <div class="rank-badge">${item.rank || index + 1}</div>
-              <h4 class="alert-title">${escapeHtml(item.display_name)}</h4>
-              <div class="alert-meta">
-                <span>${escapeHtml(item.department || item.service_area)}</span>
-                <span>${escapeHtml(item.owner_department)}</span>
-                <span>${escapeHtml(titleCase(item.selected_period || "unknown"))}</span>
-              </div>
-            </div>
-            ${renderContextPill(item[badgeField], badgeField)}
-          </div>
-          <div class="kpi-strip">
-            <div class="kpi-tile">
-              <span class="kpi-label">${escapeHtml(scoreLabel)}</span>
-              <strong class="kpi-value">${formatScore(item[scoreField])}</strong>
-            </div>
-            <div class="kpi-tile">
-              <span class="kpi-label">${escapeHtml(trendLabel)}</span>
-              <strong class="kpi-value">${formatSigned(item[trendField])}</strong>
-            </div>
-          </div>
-          <p class="strategy-copy">${escapeHtml(item.evidence)}</p>
-        </article>
-      `
-    )
-    .join("");
-}
-
-
-function renderRankedServicesChart(items) {
-  if (!items?.length) {
-    elements.rankedServicesChart.innerHTML = `<div class="empty-state">No ranked service data available.</div>`;
-    return;
-  }
-
-  const maxScore = Math.max(...items.map((item) => Number(item.composite_score || 0)), 1);
-  elements.rankedServicesChart.innerHTML = `
-    <div class="ranked-bars">
-      ${items
-        .map((item) => {
-          const width = (Number(item.composite_score || 0) / maxScore) * 100;
-          return `
-            <article class="ranked-bar-row is-clickable" data-open-metric="${escapeHtml(item.metric_name)}">
-              <div class="ranked-bar-meta">
-                <div class="ranked-bar-title">
-                  <span class="rank-badge small">${item.rank}</span>
-                  <strong>${escapeHtml(item.display_name)}</strong>
-                </div>
-                <div class="alert-meta">
-                  <span>${escapeHtml(item.department || item.service_area)}</span>
-                  <span>${escapeHtml(item.trend_label || "Unknown")}</span>
-                  <span>${escapeHtml(item.perf_band || "Unknown")}</span>
-                </div>
-              </div>
-              <div class="ranked-bar-track">
-                <span class="ranked-bar-fill ${slugify(item.perf_band || "unknown")}" style="--target-width:${width}%"></span>
-              </div>
-              <div class="ranked-bar-stats">
-                <span>Score ${formatScore(item.composite_score)}</span>
-                <span>Gap ${formatSigned(item.gap_to_target)}</span>
-                <span>Momentum ${formatSigned(item.trend_delta_wq)}</span>
-              </div>
-            </article>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-
-function renderDepartmentSummary(items) {
-  if (!items?.length) {
-    elements.departmentSummary.innerHTML = `<div class="empty-state">No department summary available.</div>`;
-    return;
-  }
-
-  elements.departmentSummary.innerHTML = `
-    <div class="department-stack">
-      ${items
-        .map((item) => `
-          <article class="department-card">
-            <div class="alert-head">
-              <div>
-                <h4 class="alert-title">${escapeHtml(item.department)}</h4>
-                <div class="alert-meta">
-                  <span>${item.metric_count} metrics</span>
-                  <span>${item.at_or_above_target_count} at or above target</span>
-                  <span>${item.priority_intervention_count} priority interventions</span>
-                </div>
-              </div>
-              <strong class="department-score">${formatScore(item.composite_score_average)}</strong>
-            </div>
-            <div class="animated-bar">
-              <span class="leading" style="--target-width:${Math.max(0, (Number(item.at_or_above_target_count || 0) / Math.max(item.metric_count || 1, 1)) * 100)}%"></span>
-            </div>
-            <p class="strategy-copy">${item.below_target_count} services in this grouping remain below the target threshold.</p>
-          </article>
-        `)
-        .join("")}
-    </div>
-  `;
-}
-
 
 function getCityHistoryForPeriod(period) {
   return state.cityHistory.filter((item) => item.period_type === period);
 }
-
 
 function renderLargeChart({ title, subtitle, values, dates, targetValue, lineColor }) {
   const validValues = values.filter((value) => typeof value === "number");
@@ -1189,6 +1212,7 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
       ? projectY(targetValue, minValue, maxValue, height, padding)
       : null;
   const latestValue = values[values.length - 1];
+  const chartId = slugify(`${title}-${subtitle}`);
 
   return `
     <div class="chart-title">
@@ -1197,14 +1221,14 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
     </div>
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(title)} chart">
       <defs>
-        <linearGradient id="areaGradient-${slugify(title)}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.26"></stop>
+        <linearGradient id="areaGradient-${chartId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.24"></stop>
           <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"></stop>
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width="${width}" height="${height}" rx="20" fill="rgba(255,255,255,0.24)"></rect>
-      ${targetY !== null ? `<line x1="${padding}" y1="${targetY}" x2="${width - padding}" y2="${targetY}" stroke="rgba(157,107,21,0.6)" stroke-dasharray="6 6" stroke-width="2"></line>` : ""}
-      <path d="${areaPath}" fill="url(#areaGradient-${slugify(title)})"></path>
+      <rect x="0" y="0" width="${width}" height="${height}" rx="20" fill="rgba(255,255,255,0.18)"></rect>
+      ${targetY !== null ? `<line x1="${padding}" y1="${targetY}" x2="${width - padding}" y2="${targetY}" stroke="rgba(154,106,25,0.55)" stroke-dasharray="6 6" stroke-width="2"></line>` : ""}
+      <path d="${areaPath}" fill="url(#areaGradient-${chartId})"></path>
       <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${lineColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
       <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="6" fill="${lineColor}" stroke="rgba(255,255,255,0.95)" stroke-width="3"></circle>
     </svg>
@@ -1215,7 +1239,6 @@ function renderLargeChart({ title, subtitle, values, dates, targetValue, lineCol
     </div>
   `;
 }
-
 
 function renderSparkline(values, { width, height, stroke }) {
   const validValues = values.filter((value) => typeof value === "number");
@@ -1232,19 +1255,12 @@ function renderSparkline(values, { width, height, stroke }) {
 
   return `
     <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
-      <defs>
-        <linearGradient id="spark-fill-${Math.random().toString(36).slice(2)}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${stroke}" stop-opacity="0.22"></stop>
-          <stop offset="100%" stop-color="${stroke}" stop-opacity="0"></stop>
-        </linearGradient>
-      </defs>
       <path d="${areaPath}" fill="rgba(48,109,41,0.12)"></path>
       <path class="chart-line" pathLength="100" d="${path}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
       <circle cx="${projectX(values.length - 1, values.length, width, padding)}" cy="${projectY(latestValue, minValue, maxValue, height, padding)}" r="4.5" fill="${stroke}" stroke="rgba(255,255,255,0.9)" stroke-width="2"></circle>
     </svg>
   `;
 }
-
 
 function buildLinePath(values, width, height, padding) {
   const validValues = values.filter((value) => typeof value === "number");
@@ -1260,7 +1276,6 @@ function buildLinePath(values, width, height, padding) {
     .join(" ");
 }
 
-
 function buildAreaPath(values, width, height, padding) {
   const validValues = values.filter((value) => typeof value === "number");
   const minValue = Math.min(...validValues);
@@ -1272,14 +1287,12 @@ function buildAreaPath(values, width, height, padding) {
   return `${linePath} L ${endX} ${baseline} L ${startX} ${baseline} Z`;
 }
 
-
 function projectX(index, length, width, padding) {
   if (length <= 1) {
     return width / 2;
   }
   return padding + (index * (width - padding * 2)) / (length - 1);
 }
-
 
 function projectY(value, minValue, maxValue, height, padding) {
   if (typeof value !== "number") {
@@ -1292,17 +1305,18 @@ function projectY(value, minValue, maxValue, height, padding) {
   return height - padding - ratio * (height - padding * 2);
 }
 
-
 function animateNumericElements(nodes) {
   nodes.forEach((node) => {
     const rawTarget = node.dataset.animateNumber;
     if (!/^-?\d+(\.\d+)?$/.test(rawTarget)) {
       return;
     }
+
     const targetValue = parseFloat(rawTarget);
     if (Number.isNaN(targetValue)) {
       return;
     }
+
     const startTime = performance.now();
     const duration = 900;
     const decimalPlaces = rawTarget.includes(".") ? Math.min(rawTarget.split(".")[1].length, 2) : 0;
@@ -1323,11 +1337,13 @@ function animateNumericElements(nodes) {
   });
 }
 
-
 function renderSeverityPill(severity) {
   return `<span class="severity-pill ${escapeHtml(severity || "blue")}">${escapeHtml(titleCase(severity || "unknown"))}</span>`;
 }
 
+function renderPriorityPill(priority) {
+  return `<span class="priority-pill ${slugify(priority || "medium")}">${escapeHtml(priority || "Medium")}</span>`;
+}
 
 function renderConsultingBucketPill(bucket) {
   if (!bucket) {
@@ -1336,14 +1352,12 @@ function renderConsultingBucketPill(bucket) {
   return `<span class="bucket-pill ${slugify(bucket)}">${escapeHtml(bucket)}</span>`;
 }
 
-
 function renderPerformanceBandPill(band) {
   if (!band) {
     return "";
   }
   return `<span class="band-pill ${slugify(band)}">${escapeHtml(band)}</span>`;
 }
-
 
 function renderContextPill(value, kind) {
   if (!value) {
@@ -1354,7 +1368,6 @@ function renderContextPill(value, kind) {
   }
   return renderConsultingBucketPill(value);
 }
-
 
 function statusToneClass(status) {
   switch (status) {
@@ -1367,38 +1380,43 @@ function statusToneClass(status) {
   }
 }
 
-
 function severityColor(severity) {
   switch (severity) {
     case "red":
-      return "#8f2c2c";
+      return "#9a3630";
     case "amber":
-      return "#9d6b15";
+      return "#9a6a19";
     case "blue":
-      return "#355f82";
+      return "#44647f";
     default:
       return "#0d530e";
   }
 }
 
-
 function performanceBandColor(band) {
   switch (band) {
     case "CRITICAL":
-      return "#CC0000";
+      return "#b43027";
     case "AT RISK":
-      return "#E8A020";
+      return "#d88f1f";
     case "NEAR MISS":
-      return "#F0D060";
+      return "#f0d060";
     case "ON TARGET":
-      return "#8BC34A";
+      return "#7ab84b";
     case "EXCEEDING":
-      return "#217346";
+      return "#236947";
     default:
       return "rgba(13,83,14,0.18)";
   }
 }
 
+function truncateText(value, maxLength) {
+  const text = String(value || "");
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 1).trim()}…`;
+}
 
 function formatScore(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -1407,7 +1425,6 @@ function formatScore(value) {
   return Number(value).toFixed(2);
 }
 
-
 function formatSigned(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -1415,7 +1432,6 @@ function formatSigned(value) {
   const numeric = Number(value);
   return `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}`;
 }
-
 
 function formatDate(value, options = {}) {
   if (!value) {
@@ -1433,14 +1449,12 @@ function formatDate(value, options = {}) {
   }).format(date);
 }
 
-
 function formatPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
   return `${(Number(value) * 100).toFixed(0)}%`;
 }
-
 
 function titleCase(value) {
   if (!value) {
@@ -1453,11 +1467,9 @@ function titleCase(value) {
     .join(" ");
 }
 
-
 function slugify(value) {
   return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
-
 
 function escapeHtml(value) {
   return String(value)
