@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -57,16 +57,9 @@ def create_app() -> FastAPI:
             return {"status": "degraded", "message": repository.last_refresh_error}
         return {"status": "starting", "message": "Pipeline has not been loaded yet."}
 
-    @app.get("/")
-    def root() -> dict[str, object]:
-        return {
-            "name": "CityScore Mayor Dashboard API",
-            "docs": "/docs",
-            "health": "/health",
-            "pipeline_status": "/api/v1/pipeline/status",
-            "dashboard_overview": "/api/v1/dashboard/overview",
-            "dashboard_ui": "/dashboard",
-        }
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        return RedirectResponse(url="/dashboard", status_code=307)
 
     @app.get("/dashboard", include_in_schema=False)
     def dashboard() -> FileResponse:
