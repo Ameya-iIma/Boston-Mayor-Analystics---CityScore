@@ -1469,7 +1469,11 @@ function formatSigned(value) {
     return "—";
   }
   const numeric = Number(value);
-  return `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}`;
+  const rounded = Number(numeric.toFixed(2));
+  if (rounded === 0 || Object.is(rounded, -0)) {
+    return "0.00";
+  }
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}`;
 }
 
 function formatDate(value, options = {}) {
